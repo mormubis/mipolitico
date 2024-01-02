@@ -1,0 +1,6 @@
+{
+	"coverageDirectory": "../coverage",
+	"rootDir": "./services",
+	"roots": ["../test"],
+	"testEnvironment": "node"
+}

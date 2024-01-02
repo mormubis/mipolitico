@@ -1,0 +1,42 @@
+{
+  "author": "Adrian de la Rosa <adrian@delarosab.me>",
+  "dependencies": {
+    "cbor-x": "^1.5.3",
+    "crawlee": "^3.4.0",
+    "cron": "^3.1.6",
+    "dotenv": "^16.3.1",
+    "moleculer": "^0.14.29",
+    "moment": "^2.29.4",
+    "nats": "^2.15.0",
+    "p-limit": "^5.0.0",
+    "playwright": "^1.35.1",
+    "romans": "^2.0.8"
+  },
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^20.3.1",
+    "esbuild": "^0.19.11",
+    "husky": "^8.0.3",
+    "moleculer-repl": "^0.7.3",
+    "playwright-core": "^1.40.1"
+  },
+  "keywords": [
+    "congress",
+    "congressperson",
+    "microservices",
+    "moleculerjs",
+    "spain"
+  ],
+  "name": "@congress/person",
+  "scripts": {
+    "build": "esbuild --format=cjs --outdir=dist --platform=node src/*.ts src/**/*.ts",
+    "dev": "ts-node ./node_modules/moleculer/bin/moleculer-runner.js --hot --repl --config src/moleculer.config.ts src/services/**/*.service.ts",
+    "inspect": "moleculer connect NATS",
+    "linter": "eslint --fix './src/**/*.ts'",
+    "linter:ci": "npm run lint -- --max-warnings 0",
+    "start": "moleculer-runner --config dist/moleculer.config.js --repl dist/services/**/*.service.js",
+    "test": "jest --coverage",
+    "test:watch": "npm run test -- --watch"
+  },
+  "version": "1.0.0"
+}
