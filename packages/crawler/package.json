@@ -11,7 +11,7 @@
   },
   "license": "MIT",
   "main": "dist/index.js",
-  "name": "@congreso/crawler",
+  "name": "@congress/crawler",
   "peerDependencies": {
     "crawlee": "^3.4.0",
     "moleculer": "^0.14.29",
