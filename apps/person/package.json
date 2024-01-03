@@ -1,5 +1,5 @@
 {
-  "author": "Adrian de la Rosa <adrian@delarosab.me>",
+  "author": "mormubis <npm@brick.email>",
   "dependencies": {
     "cbor-x": "^1.5.3",
     "crawlee": "^3.4.0",

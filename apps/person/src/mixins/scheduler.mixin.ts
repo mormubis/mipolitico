@@ -1,6 +1,5 @@
-import { CronJob as job, CronTime as time } from 'cron';
+import { CronJob as Job, CronTime as Time } from 'cron';
 import { Errors } from 'moleculer';
-import pLimit from 'p-limit';
 
 import type { ServiceSchema } from 'moleculer';
 
@@ -9,6 +8,8 @@ const noop = () => {};
 
 const mixin: ServiceSchema = {
   async created() {
+    const pLimit = (await import('p-limit')).default;
+
     const { logger } = this;
     const { concurrency = 1, schedule, timezone } = this.settings ?? {};
 
@@ -20,9 +21,8 @@ const mixin: ServiceSchema = {
     }
 
     try {
-      time(schedule);
+      new Time(schedule);
 
-      // eslint-disable-next-line @typescript-eslint/no-this-alias
       const context = this;
       const limit = pLimit(concurrency);
 
@@ -32,7 +32,7 @@ const mixin: ServiceSchema = {
         onComplete?.();
       };
 
-      this.$job = job(schedule, onTick, this?.onComplete, NO_AUTOSTART, timezone, context);
+      this.$job = new Job(schedule, onTick, this?.onComplete, NO_AUTOSTART, timezone, context);
     } catch (e) {
       logger.error(e);
       throw new Errors.ServiceSchemaError(
