@@ -1,0 +1,19 @@
+{
+  "devDependencies": {
+    "crawlee": "^3.4.0",
+    "moleculer": "^0.14.29",
+    "playwright-core": "^1.40.1"
+  },
+  "license": "MIT",
+  "main": "dist/index.js",
+  "name": "@congreso/crawler",
+  "peerDependencies": {
+    "crawlee": "^3.4.0",
+    "moleculer": "^0.14.29",
+    "playwright-core": "^1.40.1"
+  },
+  "scripts": {
+    "build": "tsc src/*.ts --outDir dist"
+  },
+  "version": "1.0.0"
+}
