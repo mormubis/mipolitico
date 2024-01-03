@@ -1,0 +1,18 @@
+{
+  "author": "mormubis <npm@brick.email>",
+  "description": "A microservice for managing congress groups",
+  "keywords": [
+    "congress",
+    "group",
+    "microservices",
+    "moleculerjs",
+    "party",
+    "spain"
+  ],
+  "license": "ISC",
+  "main": "dist/index.js",
+  "name": "@congress/group",
+  "scripts": {
+  },
+  "version": "1.0.0"
+}
