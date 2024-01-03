@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@congress/crawler':
+    specifier: workspace:^
+    version: link:../../packages/crawler
   cbor-x:
     specifier: ^1.5.3
     version: 1.5.6
