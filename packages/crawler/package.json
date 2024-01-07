@@ -13,7 +13,8 @@
     "playwright-core": "^1.40.1"
   },
   "scripts": {
-    "build": "tsc src/*.ts --outDir dist"
+    "build": "tsc -p tsconfig.json",
+    "build:ci": "rm -rf dist && pnpm run build"
   },
   "version": "1.0.0"
 }

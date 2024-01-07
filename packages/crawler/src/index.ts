@@ -32,7 +32,10 @@ interface Query {
   $$getAttribute(selector: string, attribute: string): Promise<(string | null)[]>;
   $$textContent(selector: string): Promise<(string | null)[]>;
   $$textContentMatch(selector: string, regex: RegExp): Promise<(string[] | null)[]>;
-  $(selector: string, options?: { strict: boolean }): Promise<ElementHandle<SVGElement | HTMLElement> | null>;
+  $(
+    selector: string,
+    options?: { strict: boolean },
+  ): Promise<ElementHandle<SVGElement | HTMLElement> | null>;
   $<K extends keyof HTMLElementTagNameMap>(
     selector: K,
     options?: { strict: boolean },
@@ -134,7 +137,8 @@ const mixin: ServiceSchema = {
       );
     }
 
-    const report = (id: string, value: any) => this.broker.emit(`${serviceName}:crawler:entity`, { id, value });
+    const report = (id: string, value: any) =>
+      this.broker.emit(`${serviceName}:crawler:entity`, { id, value });
 
     this.$running = false;
 
@@ -162,7 +166,9 @@ const mixin: ServiceSchema = {
             $$: $$.bind(page),
             $$eval: $$eval.bind(page),
             async $$getAttribute(selector, attribute) {
-              return await Promise.all((await query.$$(selector)).map((element) => element.getAttribute(attribute)));
+              return await Promise.all(
+                (await query.$$(selector)).map((element) => element.getAttribute(attribute)),
+              );
             },
             async $$textContent(selector: string): Promise<(string | null)[]> {
               const elements = await query.$$(selector);
@@ -175,7 +181,10 @@ const mixin: ServiceSchema = {
                 }),
               );
             },
-            async $$textContentMatch(selector: string, regex: RegExp): Promise<(string[] | null)[]> {
+            async $$textContentMatch(
+              selector: string,
+              regex: RegExp,
+            ): Promise<(string[] | null)[]> {
               const textContent = await query.$$textContent(selector);
 
               return textContent.map((text) => text?.match(regex) ?? null);
