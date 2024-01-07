@@ -20,6 +20,8 @@ const config = [
     },
     rules: {
       ...typescript.configs.recommended.rules,
+      ...typescript.configs['eslint-recommended'].rules,
+      ...typescript.configs['stylistic-type-checked'].rules,
       ...prettier.rules,
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       '@typescript-eslint/no-empty-function': 'off',
