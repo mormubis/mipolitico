@@ -45,7 +45,11 @@ importers:
         specifier: ^5.1.3
         version: 5.3.3
 
-  apps/group: {}
+  apps/group:
+    dependencies:
+      moleculer:
+        specifier: ^0.14.32
+        version: 0.14.32(cbor-x@1.5.7)(nats@2.18.0)
 
   apps/person:
     dependencies:

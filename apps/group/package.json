@@ -12,7 +12,9 @@
   "license": "ISC",
   "main": "dist/index.js",
   "name": "@congress/group",
-  "scripts": {
-  },
-  "version": "1.0.0"
+  "scripts": {},
+  "version": "1.0.0",
+  "dependencies": {
+    "moleculer": "^0.14.32"
+  }
 }
