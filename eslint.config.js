@@ -10,6 +10,9 @@ const config = [
   {
     languageOptions: {
       parser,
+      parserOptions: {
+        project: ['./tsconfig.json'],
+      },
       sourceType: 'module',
     },
     plugins: { '@typescript-eslint': typescript, 'import': importing },
