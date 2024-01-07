@@ -1,14 +1,14 @@
-FROM node:current-alpine
+FROM arm64v8/node-slim
 
-ENV NODE_ENV=production
-
+# Install pnpm
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
 RUN mkdir /app
+COPY . /app
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+# Install production dependencies
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
-RUN npm install --production
-
-COPY . .
-
-CMD ["npm", "start"]
+CMD [ "pnpm", "start" ]
