@@ -1,5 +1,8 @@
 {
   "author": "mormubis <npm@brick.email>",
+  "dependencies": {
+    "moleculer": "^0.14.32"
+  },
   "description": "A microservice for managing congress groups",
   "keywords": [
     "congress",
@@ -9,12 +12,15 @@
     "party",
     "spain"
   ],
-  "license": "ISC",
+  "license": "MIT",
   "main": "dist/index.js",
   "name": "@congress/group",
-  "scripts": {},
-  "version": "1.0.0",
-  "dependencies": {
-    "moleculer": "^0.14.32"
-  }
+  "scripts": {
+    "build": "tsc",
+    "build:clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo && pnpm run build",
+    "serve": "pnpm run start --hot --repl",
+    "start": "moleculer-runner-esm --config dist/moleculer.config.js dist/services"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }

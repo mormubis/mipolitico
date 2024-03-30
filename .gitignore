@@ -4,5 +4,8 @@ node_modules/
 # Environment variables
 .env
 
-
+# NX
 .nx/cache
+
+# TypeScript build
+tsconfig.tsbuildinfo

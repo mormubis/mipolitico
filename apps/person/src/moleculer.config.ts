@@ -51,7 +51,7 @@ const options: BrokerOptions = {
     },
   },
 
-  // Tracking requests and waiting for running requests before shuting down.
+  // Tracking requests and waiting for running requests before shutting down.
   tracking: {
     enabled: false,
   },

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    /* If transpiling with TypeScript: */
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    /* Paths */
+    "paths": {
+      "~/*": ["./src/*"]
+    }
+  },
+  "extends": "../../tsconfig.json",
+  "include": ["./src/**/*.ts"]
+}

@@ -16,16 +16,14 @@
     /* If transpiling with TypeScript: */
     "moduleResolution": "NodeNext",
     "module": "NodeNext",
-    "outDir": "dist",
     "sourceMap": true,
 
-    /* If your code doesn't run in the DOM: */
-    "lib": ["ESNext"],
+    /* AND if you're building for a library in a monorepo: */
+    "composite": true,
+    "declarationMap": true,
 
-    /* Paths */
-    "paths": {
-      "~/*": ["./src/*"]
-    },
+    /* If your code doesn't run in the DOM: */
+    "lib": ["ESNext"]
   },
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules"]
 }
