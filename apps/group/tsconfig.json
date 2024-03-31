@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     /* If transpiling with TypeScript: */
+    "moduleResolution": "Node",
+    "module": "CommonJS",
     "outDir": "./dist",
     "rootDir": "./src",
 
@@ -10,5 +12,5 @@
     }
   },
   "extends": "../../tsconfig.json",
-  "include": ["./src/**/*.ts"]
+  "include": ["./src/**/*.ts", "../../reset.d.ts"]
 }

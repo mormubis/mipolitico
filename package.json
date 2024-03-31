@@ -2,6 +2,7 @@
   "author": "Adrian de la Rosa <adrian@delarosab.me>",
   "devDependencies": {
     "@jest/globals": "^29.7.0",
+    "@total-typescript/ts-reset": "^0.5.1",
     "@types/node": "^20.12.2",
     "@typescript-eslint/eslint-plugin": "^7.4.0",
     "@typescript-eslint/parser": "^7.4.0",
