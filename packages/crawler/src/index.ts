@@ -1,65 +1,18 @@
 import { createPlaywrightRouter, Configuration, PlaywrightCrawler } from 'crawlee';
-import { Errors } from 'moleculer';
 
 import type { BrowserErrorHandler, PlaywrightCrawlingContext, RouterHandler } from 'crawlee';
 import type { ServiceSchema } from 'moleculer';
-import type { ElementHandle } from 'playwright-core';
-import type { PageFunctionOn, ElementHandleForTag } from 'playwright-core/types/structs';
+
+import adaptRequestHandler, { type CrawlerRequestHandler } from './adapter';
 
 interface Query {
-  $$(selector: string): Promise<ElementHandle<SVGElement | HTMLElement>[]>;
-  $$<K extends keyof HTMLElementTagNameMap>(selector: K): Promise<ElementHandleForTag<K>[]>;
-  $$eval<K extends keyof HTMLElementTagNameMap, R, Arg>(
-    selector: K,
-    pageFunction: PageFunctionOn<HTMLElementTagNameMap[K][], Arg, R>,
-    arg: Arg,
-  ): Promise<R>;
-  $$eval<R, Arg, E extends SVGElement | HTMLElement = SVGElement | HTMLElement>(
-    selector: string,
-    pageFunction: PageFunctionOn<E[], Arg, R>,
-    arg: Arg,
-  ): Promise<R>;
-  $$eval<K extends keyof HTMLElementTagNameMap, R>(
-    selector: K,
-    pageFunction: PageFunctionOn<HTMLElementTagNameMap[K][], void, R>,
-    arg?: any,
-  ): Promise<R>;
-  $$eval<R, E extends SVGElement | HTMLElement = SVGElement | HTMLElement>(
-    selector: string,
-    pageFunction: PageFunctionOn<E[], void, R>,
-    arg?: any,
-  ): Promise<R>;
+  $$: PlaywrightCrawlingContext['page']['$$'];
+  $$eval: PlaywrightCrawlingContext['page']['$$eval'];
   $$getAttribute(selector: string, attribute: string): Promise<(string | null)[]>;
   $$textContent(selector: string): Promise<(string | null)[]>;
   $$textContentMatch(selector: string, regex: RegExp): Promise<(string[] | null)[]>;
-  $(
-    selector: string,
-    options?: { strict: boolean },
-  ): Promise<ElementHandle<SVGElement | HTMLElement> | null>;
-  $<K extends keyof HTMLElementTagNameMap>(
-    selector: K,
-    options?: { strict: boolean },
-  ): Promise<ElementHandleForTag<K> | null>;
-  $eval<K extends keyof HTMLElementTagNameMap, R, Arg>(
-    selector: K,
-    pageFunction: PageFunctionOn<HTMLElementTagNameMap[K], Arg, R>,
-    arg: Arg,
-  ): Promise<R>;
-  $eval<R, Arg, E extends SVGElement | HTMLElement = SVGElement | HTMLElement>(
-    selector: string,
-    pageFunction: PageFunctionOn<E, Arg, R>,
-    arg: Arg,
-  ): Promise<R>;
-  $eval<K extends keyof HTMLElementTagNameMap, R>(
-    selector: K,
-    pageFunction: PageFunctionOn<HTMLElementTagNameMap[K], void, R>,
-    arg?: any,
-  ): Promise<R>;
-  $eval<R, E extends SVGElement | HTMLElement = SVGElement | HTMLElement>(
-    selector: string,
-    pageFunction: PageFunctionOn<E, void, R>,
-    arg?: any,
-  ): Promise<R>;
+  $: PlaywrightCrawlingContext['page']['$'];
+  $eval: PlaywrightCrawlingContext['page']['$eval'];
   $getAttribute(selector: string, attribute: string): Promise<string | null>;
   $textContent(selector: string): Promise<string | null>;
   $textContentMatch(selector: string, regex: RegExp): Promise<string[] | null>;
@@ -70,10 +23,6 @@ interface CrawlerContext extends PlaywrightCrawlingContext {
   query: Query;
 }
 
-type AdaptHandlerOptions = {
-  report: <T>(id: string, value: T) => void;
-};
-
 type CrawlerOptions = {
   errorHandler: BrowserErrorHandler;
   headless: boolean;
@@ -82,134 +31,45 @@ type CrawlerOptions = {
 
 type RequestHandler = RouterHandler<CrawlerContext>;
 
-const mixin: ServiceSchema = {
+const mixin = {
   actions: {
     crawl: {
       async handler({ params }) {
-        const { name: serviceName, settings } = this;
+        const { settings } = this;
         const options: CrawlerOptions = settings.crawler;
+        const entries = Object.entries(params.handlers as Record<string, CrawlerRequestHandler>);
 
-        if (!this.$running) {
-          this.$url = params.url;
-          const crawler = new PlaywrightCrawler(
-            {
-              launchContext: {
-                launchOptions: {
-                  headless: options.headless,
-                },
-              },
+        const router = createPlaywrightRouter();
 
-              errorHandler: options.errorHandler.bind(this),
+        entries.forEach(([label, handler]) => {
+          if (label === 'default') {
+            return router.addDefaultHandler(adaptRequestHandler(handler));
+          }
 
-              maxRequestsPerMinute: options.maxRequestsPerMinute,
+          return router.addHandler(label, adaptRequestHandler(handler));
+        });
 
-              requestHandler: this.$router,
-            },
-            this.$configuration,
-          );
+        const crawler = new PlaywrightCrawler(
+          {
+            headless: options.headless,
+            maxRequestsPerMinute: options.maxRequestsPerMinute,
+            requestHandler: router,
+          },
+          new Configuration({ persistStorage: false }),
+        );
 
-          this.broker.emit(`${serviceName}:crawler:start`, this.$url);
-
-          crawler.run([params]).then(() => {
-            crawler.requestQueue?.drop();
-            this.__onCrawlerEnd();
-            this.broker.emit(`${serviceName}:crawler:end`, this.$url);
-          });
-        }
+        crawler.run([params]).then(() => {
+          crawler.requestQueue?.drop();
+        });
       },
       params: {
-        label: 'string|optional',
+        handlers: {
+          $$type: 'record',
+          key: { type: 'string', alpha: true },
+          value: { type: 'array', items: 'string' },
+        },
         url: 'string',
       },
-    },
-  },
-
-  crawler: {} as Record<string, RequestHandler>,
-
-  created() {
-    const { name: serviceName } = this;
-    const { crawler: routes } = this.schema;
-
-    if (!routes) {
-      throw new Errors.ServiceSchemaError(
-        `[Crawler]: 'crawler' is not defined. 'crawler' defines the route handler that will be used in the crawler. Define 'crawler' in your service.`,
-        routes,
-      );
-    }
-
-    const report = (id: string, value: any) =>
-      this.broker.emit(`${serviceName}:crawler:entity`, { id, value });
-
-    this.$running = false;
-
-    const router = createPlaywrightRouter();
-    const entries: [string, RequestHandler][] = Object.entries(routes);
-    entries.forEach(([label, handler]) => {
-      if (label === 'default') {
-        return router.addDefaultHandler(this.__adaptHandler(handler)({ report }).bind(this));
-      }
-
-      return router.addHandler(label, this.__adaptHandler(handler)({ report }).bind(this));
-    });
-
-    this.$configuration = new Configuration({ persistStorage: false });
-    this.$router = router;
-  },
-
-  methods: {
-    __adaptHandler(handler: RequestHandler) {
-      return ({ report }: AdaptHandlerOptions) =>
-        ({ page, ...ctx }: PlaywrightCrawlingContext) => {
-          const { $, $$, $eval, $$eval, getAttribute } = page;
-
-          const query: Query = {
-            $$: $$.bind(page),
-            $$eval: $$eval.bind(page),
-            async $$getAttribute(selector, attribute) {
-              return await Promise.all(
-                (await query.$$(selector)).map((element) => element.getAttribute(attribute)),
-              );
-            },
-            async $$textContent(selector: string): Promise<(string | null)[]> {
-              const elements = await query.$$(selector);
-
-              return await Promise.all(
-                elements.map(async (element) => {
-                  const content = await element?.textContent();
-
-                  return content?.trim() ?? content;
-                }),
-              );
-            },
-            async $$textContentMatch(
-              selector: string,
-              regex: RegExp,
-            ): Promise<(string[] | null)[]> {
-              const textContent = await query.$$textContent(selector);
-
-              return textContent.map((text) => text?.match(regex) ?? null);
-            },
-            $: $.bind(page),
-            $eval: $eval.bind(page),
-            $getAttribute: getAttribute.bind(page),
-            async $textContent(selector: string): Promise<string | null> {
-              const content = await page.textContent(selector);
-
-              return content?.trim() ?? content;
-            },
-            async $textContentMatch(selector: string, regex: RegExp): Promise<string[] | null> {
-              const textContent = await query.$textContent(selector);
-
-              return textContent?.match(regex) ?? null;
-            },
-          };
-
-          return handler({ ...ctx, page, query, report });
-        };
-    },
-    __onCrawlerEnd() {
-      this.$running = false;
-      this.$url = '';
     },
   },
 
@@ -221,8 +81,8 @@ const mixin: ServiceSchema = {
       maxRequestsPerMinute: 30,
     },
   },
-};
+} satisfies ServiceSchema;
 
-export type { CrawlerContext, RequestHandler };
+export type { RequestHandler };
 
 export default mixin;
