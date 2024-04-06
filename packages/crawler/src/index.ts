@@ -70,6 +70,7 @@ const mixin = {
         },
         url: 'string',
       },
+      visibility: 'protected',
     },
   },
 
