@@ -1,0 +1,31 @@
+{
+  "author": "mormubis <npm@brick.email>",
+  "dependencies": {
+    "cbor-x": "^1.5.3",
+    "moleculer": "^0.14.32",
+    "romans": "^2.0.8"
+  },
+  "description": "A microservice for managing congress groups",
+  "keywords": [
+    "congress",
+    "group",
+    "microservices",
+    "moleculerjs",
+    "party",
+    "spain"
+  ],
+  "license": "MIT",
+  "main": "dist/index.js",
+  "name": "@congress/legislature",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "pnpm run build --watch",
+    "clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo",
+    "serve": "concurrently --kill-others --prefix=\"none\" --raw \"pnpm run start --hot --repl\" \"pnpm build:watch >/dev/null\"",
+    "start": "moleculer-runner --config dist/moleculer.config.js dist/services"
+  },
+  "version": "1.0.0",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
