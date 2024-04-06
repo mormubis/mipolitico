@@ -1,6 +1,13 @@
 {
-  "targetDefaults": {},
   "affected": {
     "defaultBase": "main"
+  },
+  "targetDefaults": {
+    "build": {
+      "dependsOn": [{ "projects": "dependencies", "target": "build" }]
+    },
+    "build:watch": {
+      "dependsOn": [{ "projects": "dependencies", "target": "build:watch" }]
+    }
   }
 }
