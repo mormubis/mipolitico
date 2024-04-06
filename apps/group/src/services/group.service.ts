@@ -118,12 +118,12 @@ function hasName(name: string): name is keyof typeof NAMES {
   return name in NAMES;
 }
 
-const service: ServiceSchema = {
+const service = {
   actions: {
     get: {
       cache: true,
       async handler(context) {
-        const { id, legislature = 15, name } = context.params ?? {};
+        const { id, legislature = 15 } = context.params ?? {};
 
         const response = await fetch(
           'https://www.congreso.es/es/grupos/composicion-en-la-legislatura?p_p_id=grupos&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=gruposSearch&p_p_cacheability=cacheLevelPage',
@@ -144,7 +144,7 @@ const service: ServiceSchema = {
 
         const { data } = (await response.json()) as GroupResponse;
 
-        return await Promise.all(
+        const groups = await Promise.all(
           data.map(async (group) => {
             const id = await context.call('group.id', { name: group.nombreGrupo });
 
@@ -159,11 +159,16 @@ const service: ServiceSchema = {
             };
           }),
         );
+
+        if (id) {
+          return groups.find((group) => group.id === id);
+        }
+
+        return groups;
       },
       params: {
         id: 'string|optional',
         legislature: 'number|optional',
-        name: 'string|optional',
       },
     },
 
@@ -193,6 +198,8 @@ const service: ServiceSchema = {
   },
 
   name: 'group',
-};
+} satisfies ServiceSchema;
 
 export default service;
+
+type X = (typeof service)['actions']['get']['handler'];

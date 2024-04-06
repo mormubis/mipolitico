@@ -1,6 +1,7 @@
 {
   "author": "mormubis <npm@brick.email>",
   "dependencies": {
+    "cbor-x": "^1.5.3",
     "moleculer": "^0.14.32",
     "romans": "^2.0.8"
   },
@@ -18,11 +19,9 @@
   "name": "@congress/group",
   "scripts": {
     "build": "tsc",
-    "build:clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo && pnpm run build",
-    "build:watch": "pnpm run build --watch",
+    "build:watch": "nx run build --watch",
     "clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo",
-    "serve": "concurrently --kill-others --prefix=\"none\" --raw \"pnpm run start --hot --repl\" \"pnpm build:watch >/dev/null\"",
-    "serve:test": "pnpm run start --hot --repl",
+    "serve": "concurrently --kill-others --prefix=\"none\" --raw \"nx run start --hot --repl\" \"nx build:watch >/dev/null\"",
     "start": "moleculer-runner --config dist/moleculer.config.js dist/services"
   },
   "version": "1.0.0",
