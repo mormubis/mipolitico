@@ -6,6 +6,9 @@
     "romans": "^2.0.8"
   },
   "description": "A microservice for managing congress groups",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
   "keywords": [
     "congress",
     "group",
@@ -19,13 +22,10 @@
   "name": "@congress/group",
   "scripts": {
     "build": "tsc",
-    "build:watch": "nx run build --watch",
+    "build:watch": "pnpm run build --watch",
     "clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo",
-    "serve": "concurrently --kill-others --prefix=\"none\" --raw \"nx run start --hot --repl\" \"nx build:watch >/dev/null\"",
+    "serve": "pnpm run start --hot --repl",
     "start": "moleculer-runner --config dist/moleculer.config.js dist/services"
   },
-  "version": "1.0.0",
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  }
+  "version": "1.0.0"
 }
