@@ -26,8 +26,8 @@ function adaptRequestHandler(
     const { $, $$, $eval, $$eval, getAttribute } = page;
 
     const query: CrawlerQuery = {
-      $$: $$.bind,
-      $$eval: $$eval.bind,
+      $$: $$.bind(page),
+      $$eval: $$eval.bind(page),
       async $$getAttribute(selector: string, attribute: string) {
         return Promise.all(
           (await query.$$(selector)).map((element) => element.getAttribute(attribute)),
@@ -49,9 +49,9 @@ function adaptRequestHandler(
 
         return textContent.map((text) => text?.match(regex) ?? null);
       },
-      $: $.bind,
-      $eval: $eval.bind,
-      $getAttribute: getAttribute.bind,
+      $: $.bind(page),
+      $eval: $eval.bind(page),
+      $getAttribute: getAttribute.bind(page),
       async $textContent(selector: string): Promise<string | null> {
         const content = await page.textContent(selector);
 

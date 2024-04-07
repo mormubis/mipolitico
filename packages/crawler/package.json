@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:watch": "nx run build --watch",
+    "build:watch": "pnpm run build --watch",
     "clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo"
   },
   "version": "1.0.0"

@@ -37,6 +37,7 @@ const mixin = {
         );
 
         await crawler.run([params]);
+        crawler.requestQueue?.drop();
 
         const dataset = await crawler.getDataset();
         return await dataset.getData();
