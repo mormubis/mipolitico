@@ -1,35 +1,13 @@
 import { createPlaywrightRouter, Configuration, PlaywrightCrawler } from 'crawlee';
 
-import type { BrowserErrorHandler, PlaywrightCrawlingContext, RouterHandler } from 'crawlee';
 import type { ServiceSchema } from 'moleculer';
 
 import adaptRequestHandler, { type CrawlerRequestHandler } from './adapter';
 
-interface Query {
-  $$: PlaywrightCrawlingContext['page']['$$'];
-  $$eval: PlaywrightCrawlingContext['page']['$$eval'];
-  $$getAttribute(selector: string, attribute: string): Promise<(string | null)[]>;
-  $$textContent(selector: string): Promise<(string | null)[]>;
-  $$textContentMatch(selector: string, regex: RegExp): Promise<(string[] | null)[]>;
-  $: PlaywrightCrawlingContext['page']['$'];
-  $eval: PlaywrightCrawlingContext['page']['$eval'];
-  $getAttribute(selector: string, attribute: string): Promise<string | null>;
-  $textContent(selector: string): Promise<string | null>;
-  $textContentMatch(selector: string, regex: RegExp): Promise<string[] | null>;
-}
-
-interface CrawlerContext extends PlaywrightCrawlingContext {
-  report: <T>(id: string, value: T) => void;
-  query: Query;
-}
-
 type CrawlerOptions = {
-  errorHandler: BrowserErrorHandler;
   headless: boolean;
   maxRequestsPerMinute: number;
 };
-
-type RequestHandler = RouterHandler<CrawlerContext>;
 
 const mixin = {
   actions: {
@@ -58,9 +36,10 @@ const mixin = {
           new Configuration({ persistStorage: false }),
         );
 
-        crawler.run([params]).then(() => {
-          crawler.requestQueue?.drop();
-        });
+        await crawler.run([params]);
+
+        const dataset = await crawler.getDataset();
+        return await dataset.getData();
       },
       params: {
         handlers: {
@@ -70,7 +49,7 @@ const mixin = {
         },
         url: 'string',
       },
-      visibility: 'protected',
+      visibility: 'private',
     },
   },
 
@@ -84,6 +63,6 @@ const mixin = {
   },
 } satisfies ServiceSchema;
 
-export type { RequestHandler };
+export type { CrawlerRequestHandler };
 
 export default mixin;
