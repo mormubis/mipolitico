@@ -4,10 +4,13 @@
   },
   "targetDefaults": {
     "build": {
-      "dependsOn": [{ "projects": "dependencies", "target": "build" }]
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["{projectRoot}/src/**/*"],
+      "outputs": ["{projectRoot}/dist/**/*"]
     },
     "build:watch": {
-      "dependsOn": [{ "projects": "dependencies", "target": "build:watch" }]
+      "dependsOn": ["^build"]
     }
   }
 }
