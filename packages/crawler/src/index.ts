@@ -6,7 +6,9 @@ import adaptRequestHandler, { type CrawlerRequestHandler } from './adapter';
 
 type CrawlerOptions = {
   headless: boolean;
+  maxConcurrency: number;
   maxRequestsPerMinute: number;
+  sameDomainDelaySecs: number;
 };
 
 const mixin = {
@@ -30,8 +32,10 @@ const mixin = {
         const crawler = new PlaywrightCrawler(
           {
             headless: options.headless,
+            maxConcurrency: options.maxConcurrency,
             maxRequestsPerMinute: options.maxRequestsPerMinute,
             requestHandler: router,
+            sameDomainDelaySecs: options.sameDomainDelaySecs,
           },
           new Configuration({ persistStorage: false }),
         );
@@ -59,7 +63,9 @@ const mixin = {
   settings: {
     crawler: {
       headless: true,
-      maxRequestsPerMinute: 30,
+      maxConcurrency: 4,
+      maxRequestsPerMinute: Infinity,
+      sameDomainDelaySecs: 0.5,
     },
   },
 } satisfies ServiceSchema;
