@@ -4,8 +4,12 @@
     "@congress/crawler": "workspace:*",
     "cbor-x": "^1.5.3",
     "moleculer": "^0.14.32",
+    "moleculer-db": "^0.8.25",
+    "moleculer-db-adapter-sequelize": "^0.2.16",
     "playwright": "^1.35.1",
-    "romans": "^2.0.8"
+    "romans": "^2.0.8",
+    "sequelize": "^6.37.3",
+    "sqlite3": "^5.1.7"
   },
   "description": "A microservice for managing congress groups",
   "devDependencies": {
@@ -35,6 +39,7 @@
     "build": "tsc",
     "build:watch": "pnpm run build --watch",
     "clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo",
+    "lint": "eslint 'src/**/*' --fix",
     "pre:build": "pnpm exec playwright install",
     "serve": "pnpm run start --hot --repl",
     "start": "moleculer-runner --config dist/moleculer.config.js dist/services"

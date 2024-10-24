@@ -1,17 +1,20 @@
 import { CronJob as Job, CronTime as Time } from 'cron';
-import { Errors } from 'moleculer';
+import { Errors, type ServiceSchema } from 'moleculer';
+import pLimit from 'p-limit';
 
-import type { ServiceSchema } from 'moleculer';
+type SchedulerOptions = {
+  concurrency: number;
+  schedule: string;
+  timezone: string;
+};
 
 const NO_AUTOSTART = false;
 const noop = () => {};
 
-const mixin: ServiceSchema = {
+const mixin = {
   async created() {
-    const pLimit = (await import('p-limit')).default;
-
-    const { logger } = this;
-    const { concurrency = 1, schedule, timezone } = this.settings ?? {};
+    const { logger, settings } = this;
+    const { concurrency = 1, schedule, timezone }: SchedulerOptions = settings.scheduler ?? {};
 
     if (!schedule) {
       throw new Errors.ServiceSchemaError(
@@ -35,6 +38,7 @@ const mixin: ServiceSchema = {
       this.$job = new Job(schedule, onTick, this?.onComplete, NO_AUTOSTART, timezone, context);
     } catch (e) {
       logger.error(e);
+
       throw new Errors.ServiceSchemaError(
         `[Scheduler]: 'schedule' must be a valid cron time. Check https://crontab.guru/ for more info.`,
         schedule,
@@ -42,29 +46,27 @@ const mixin: ServiceSchema = {
     }
   },
 
+  name: 'scheduler',
+
   methods: {
     onComplete() {},
     onTick() {},
   },
 
-  name: 'scheduler',
-
   settings: {
-    concurrency: 1,
-    timezone: '',
+    scheduler: {
+      concurrency: 1,
+      timezone: '',
+    },
   },
 
   started() {
-    if (this.$job) {
-      this.$job.start();
-    }
+    this.$job.start();
   },
 
   stopped() {
-    if (this.$job) {
-      this.$job.stop();
-    }
+    this.$job.stop();
   },
-};
+} satisfies ServiceSchema;
 
 export default mixin;

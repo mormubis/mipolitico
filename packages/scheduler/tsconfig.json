@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    /* If transpiling with TypeScript: */
+    "moduleResolution": "Node",
+    "module": "CommonJS",
+    "outDir": "./dist",
+    "rootDir": "./src",
+
+    /* Paths */
+    "paths": {
+      "~/*": ["./src/*"]
+    },
+
+    /* AND if you're building for a library: */
+    "declaration": true,
+
+    /* AND if you're building for a library in a monorepo: */
+    "composite": true,
+    "declarationMap": true
+  },
+  "extends": "../../tsconfig.json",
+  "include": ["./src/**/*.ts", "../../reset.d.ts"]
+}

@@ -1,78 +1,113 @@
-import { ServiceSchema } from 'moleculer';
+import crawler, { type CrawlerRequestHandler } from '@congress/crawler';
+import db from 'moleculer-db';
+import SequelizeAdapter from 'moleculer-db-adapter-sequelize';
 import { romanize } from 'romans';
+import { DataTypes } from 'sequelize';
 
-type Group = {
-  listaDir: {
-    descripcion: string;
-    direccion: string;
-    idTipo: number;
-    orden: number;
-    tieneImagen: boolean;
-    secuencial: number;
-    idGrupo: number;
-  }[];
-  nombreGrupo: string;
-  gprDescAbr: string;
-  grpDesc: string;
-  codOrg: number;
-  numMiembros: number;
-  idLegislatura: number;
-  fechaConstitucion: string;
-};
+import type { ServiceSchema } from 'moleculer';
 
-type GroupResponse = {
-  data: Group[];
-};
-
-const service: ServiceSchema = {
+const service = {
   actions: {
+    count: {
+      visibility: 'protected',
+    },
+    create: {
+      visibility: 'protected',
+    },
+    do() {
+      return this.fetch();
+    },
+    find: {
+      visibility: 'protected',
+    },
     get: {
-      cache: true,
-      async handler(context) {
-        const { id = 15 } = context.params ?? {};
-
-        const response = await fetch(
-          'https://www.congreso.es/es/grupos/composicion-en-la-legislatura?p_p_id=grupos&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=gruposSearch&p_p_cacheability=cacheLevelPage',
-          {
-            headers: {
-              'accept': 'application/json, text/javascript, */*; q=0.01',
-              'accept-language': 'en-US,en;q=0.6',
-              'cache-control': 'no-cache',
-              'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-              'x-requested-with': 'XMLHttpRequest',
-            },
-            body: new URLSearchParams({
-              _grupos_idLegislatura: romanize(legislature),
-            }),
-            method: 'POST',
-          },
-        );
-
-        const { data } = (await response.json()) as GroupResponse;
-
-        return await Promise.all(
-          data.map(async (group) => {
-            const id = await context.call('group.id', { name: group.nombreGrupo });
-
-            return {
-              id,
-              name: await context.call('group.name', { id }),
-              description: group.grpDesc,
-              links: (group.listaDir || [])?.map((link) => ({
-                description: link.descripcion,
-                value: link.direccion,
-              })),
-            };
-          }),
-        );
+      async handler() {
+        return this.actions.crawl?.({
+          url: 'https://www.congreso.es/es/cem/historia',
+        });
       },
       params: {
-        id: 'string|optional',
+        id: 'number|optional',
       },
+    },
+    insert: {
+      visibility: 'protected',
+    },
+    list: {
+      visibility: 'protected',
+    },
+    remove: {
+      visibility: 'protected',
+    },
+    update: {
+      visibility: 'protected',
+    },
+  },
+
+  adapter: new SequelizeAdapter('sqlite://legislature.sqlite'),
+
+  crawler: {
+    async default({ enqueueLinks }) {
+      await enqueueLinks({
+        label: 'legislature',
+        globs: ['https://www.congreso.es/es/cem/*leg'],
+      });
+    },
+    async legislature({ enqueueLinks, pushData, query, page }) {
+      console.log('>>> legislature:page.url()', page.url());
+
+      const title = await query.$textContent('.inplacedisplayid1siteid73');
+
+      await pushData({ title });
+
+      await enqueueLinks({
+        label: 'president',
+        globs: ['*/web/guest/presidentes-del-congreso-de-los-diputados*'],
+      });
+    },
+    president({ page }) {
+      console.log('>>> president:page.url()', page.url());
+    },
+  } satisfies Record<string, CrawlerRequestHandler>,
+
+  methods: {
+    fetch() {
+      return this.actions.crawl?.(
+        {
+          url: 'https://www.congreso.es/es/cem/historia',
+        },
+        { timeout: 0 },
+      );
+    },
+  },
+
+  mixins: [crawler, db],
+
+  model: {
+    name: 'legislature',
+    define: {
+      id: { defaultValue: DataTypes.UUIDV4, primaryKey: true, type: DataTypes.UUID },
+      url: DataTypes.TEXT,
+      president: DataTypes.TEXT,
+    },
+    options: {
+      paranoid: true,
+      // Options from https://sequelize.org/docs/v6/moved/models-definition/
     },
   },
 
   name: 'legislature',
-};
+
+  settings: {
+    crawler: {
+      maxConcurrency: 1,
+      sameDomainDelaySecs: 2,
+    },
+  },
+
+  started() {
+    // return this.fetch();
+  },
+} satisfies ServiceSchema;
 
 export default service;

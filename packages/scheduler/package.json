@@ -1,20 +1,20 @@
 {
+  "dependencies": {
+    "p-limit": "^5.0.0"
+  },
   "devDependencies": {
-    "crawlee": "^3.8.2",
-    "moleculer": "^0.14.29",
-    "playwright-core": "^1.42.1"
+    "cron": "^3.1.7",
+    "moleculer": "^0.14.29"
   },
   "license": "MIT",
   "main": "dist/index.js",
-  "name": "@congress/crawler",
+  "name": "@congress/scheduler",
   "peerDependencies": {
-    "crawlee": "^3.8.2",
-    "moleculer": "^0.14.29",
-    "playwright-core": "^1.42.1"
+    "cron": "^3.1.7",
+    "moleculer": "^0.14.29"
   },
   "scripts": {
     "build": "tsc",
-    "build:watch": "pnpm run build --watch",
     "clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo"
   },
   "version": "1.0.0"

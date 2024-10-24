@@ -1,4 +1,4 @@
-import { PlaywrightCrawlingContext, RequestHandler, RouterHandler } from 'crawlee';
+import type { PlaywrightCrawlingContext, RequestHandler } from 'crawlee';
 
 interface CrawlerQuery {
   $$: PlaywrightCrawlingContext['page']['$$'];

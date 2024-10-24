@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 
-const typescript = require('@typescript-eslint/eslint-plugin');
-const parser = require('@typescript-eslint/parser');
-const prettier = require('eslint-config-prettier');
-const importing = require('eslint-plugin-import');
+import typescript from '@typescript-eslint/eslint-plugin';
+import parser from '@typescript-eslint/parser';
+import prettier from 'eslint-config-prettier';
+import importing from 'eslint-plugin-import';
 
 /** @type { import("eslint").Linter.FlatConfig[] } */
 const config = [
   {
+    files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser,
       parserOptions: {
@@ -22,6 +23,8 @@ const config = [
       },
     },
     rules: {
+      // eslint-plugin-import does not support ESLint 9 yet
+      // ...importing.configs.typescript,
       ...typescript.configs.recommended.rules,
       ...typescript.configs['eslint-recommended'].rules,
       ...typescript.configs['stylistic-type-checked'].rules,
@@ -51,4 +54,4 @@ const config = [
   },
 ];
 
-module.exports = config;
+export default config;

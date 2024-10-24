@@ -1,23 +1,24 @@
 import { createPlaywrightRouter, Configuration, PlaywrightCrawler } from 'crawlee';
-
-import type { ServiceSchema } from 'moleculer';
+import { Errors, type ServiceSchema } from 'moleculer';
 
 import adaptRequestHandler, { type CrawlerRequestHandler } from './adapter';
 
-type CrawlerOptions = {
+interface CrawlerOptions {
   headless: boolean;
   maxConcurrency: number;
   maxRequestsPerMinute: number;
   sameDomainDelaySecs: number;
-};
+}
 
 const mixin = {
   actions: {
     crawl: {
       async handler({ params }) {
         const { settings } = this;
-        const options: CrawlerOptions = settings.crawler;
-        const entries = Object.entries(params.handlers as Record<string, CrawlerRequestHandler>);
+        const { crawler: handlers } = this.schema;
+
+        const options: CrawlerOptions = settings.crawler ?? {};
+        const entries = Object.entries(handlers as Record<string, CrawlerRequestHandler>);
 
         const router = createPlaywrightRouter();
 
@@ -41,22 +42,30 @@ const mixin = {
         );
 
         await crawler.run([params]);
-        crawler.requestQueue?.drop();
+        await crawler.requestQueue?.drop();
 
         const dataset = await crawler.getDataset();
         return await dataset.getData();
       },
       params: {
-        handlers: {
-          $$type: 'record',
-          key: { type: 'string', alpha: true },
-          value: { type: 'array', items: 'string' },
-        },
+        label: 'string|optional',
         url: 'string',
       },
-      visibility: 'private',
     },
   },
+
+  created() {
+    const { crawler: handlers } = this.schema;
+
+    if (!handlers) {
+      throw new Errors.ServiceSchemaError(
+        `[Crawler]: 'crawler' is not defined. 'crawler' defines the route handler that will be used in the crawler. Define 'crawler' in your service.`,
+        handlers,
+      );
+    }
+  },
+
+  crawler: {},
 
   name: 'crawler',
 
