@@ -1,44 +1,50 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
+import eslint from '@eslint/js';
+import { defineConfig } from 'eslint/config';
+import prettier from 'eslint-config-prettier/flat';
+import * as importing from 'eslint-plugin-import-x';
+import * as typescript from 'typescript-eslint';
 
-import typescript from '@typescript-eslint/eslint-plugin';
-import parser from '@typescript-eslint/parser';
-import prettier from 'eslint-config-prettier';
-import importing from 'eslint-plugin-import';
-
-/** @type { import("eslint").Linter.FlatConfig[] } */
-const config = [
+export default defineConfig(
+  eslint.configs.recommended,
+  typescript.configs.recommendedTypeChecked,
+  typescript.configs.stylisticTypeChecked,
+  typescript.configs.strictTypeChecked,
+  importing.flatConfigs.recommended,
+  importing.flatConfigs.typescript,
+  prettier,
   {
-    files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
-      parser,
       parserOptions: {
-        project: ['./tsconfig.json'],
-      },
-      sourceType: 'module',
-    },
-    plugins: { '@typescript-eslint': typescript, 'import': importing },
-    settings: {
-      'import/parsers': {
-        '@typescript-eslint/parser': ['.ts', '.tsx'],
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+  {
     rules: {
-      // eslint-plugin-import does not support ESLint 9 yet
-      // ...importing.configs.typescript,
-      ...typescript.configs.recommended.rules,
-      ...typescript.configs['eslint-recommended'].rules,
-      ...typescript.configs['stylistic-type-checked'].rules,
-      ...prettier.rules,
-      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports' },
+      ],
       '@typescript-eslint/no-empty-function': 'off',
-      'import/order': [
+      '@typescript-eslint/no-misused-promises': 'warn',
+      'curly': ['error', 'multi-line'],
+      'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+      'import-x/exports-last': 'error',
+      'import-x/first': 'error',
+      'import-x/order': [
         'error',
         {
           'alphabetize': {
             order: 'asc',
             caseInsensitive: true,
           },
-          'groups': [['builtin', 'external'], 'internal', ['parent', 'sibling'], 'type'],
+          'groups': [
+            ['builtin', 'external'],
+            'internal',
+            ['parent', 'sibling'],
+            'type',
+          ],
           'newlines-between': 'always',
           'pathGroups': [
             {
@@ -50,8 +56,22 @@ const config = [
           'pathGroupsExcludedImportTypes': ['~/**'],
         },
       ],
+      'no-async-promise-executor': 'off',
+      'sort-imports': [
+        'error',
+        {
+          ignoreDeclarationSort: true,
+          ignoreMemberSort: false,
+          allowSeparatedGroups: true,
+        },
+      ],
     },
   },
-];
-
-export default config;
+  {
+    files: ['**/src/**/*.{ts,mts}'],
+    rules: {
+      'import-x/extensions': ['error', 'always', { fix: true }],
+      'import-x/no-default-export': 'error',
+    },
+  },
+);

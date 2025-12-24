@@ -1,11 +1,8 @@
-# Dependency directories
+# Node
 node_modules/
 
-# Environment variables
-.env
-
 # NX
-.nx/cache
+.nx/
 
 # TypeScript build
 tsconfig.tsbuildinfo

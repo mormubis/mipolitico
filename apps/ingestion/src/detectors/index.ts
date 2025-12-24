@@ -1,0 +1,1 @@
+export { BaseDetector, type ChangeResult, type DetectionConfig } from './base-detector';
