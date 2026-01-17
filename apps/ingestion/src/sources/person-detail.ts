@@ -1,7 +1,7 @@
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 
-import { random, romanize, shuffle } from '../utils.ts';
+import { random, romanize } from '../utils.ts';
 
 import type { Finder, Retriever } from './types';
 
@@ -62,12 +62,10 @@ const finder: Finder = async ({ fetch }) => {
 
   const { data } = (await response.json()) as { data: APIDeputyItem[] };
 
-  return shuffle(
-    data.map((item) => ({
-      url: `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false`,
-      extra: item,
-    })),
-  );
+  return data.map((item) => ({
+    url: `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false`,
+    extra: item,
+  }));
 };
 
 const retriever: Retriever<Model> = ({ browser, extra, url }) => {
@@ -93,6 +91,7 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
           TWITTER,
           WEB,
         ] = await Promise.all([
+          // Actividades
           page
             .getByText('Declaración de Actividades')
             .first()
@@ -102,6 +101,7 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
                 `Failed to extract Declaración de Actividades URL: ${(error as Error).message}`,
               );
             }),
+          // Bienes
           page
             .getByText('Declaración de Bienes y Rentas')
             .first()
@@ -111,6 +111,7 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
                 `Failed to extract Declaración de Bienes y Rentas URL: ${(error as Error).message}`,
               );
             }),
+          // Intereses
           page
             .getByText('Declaración de Intereses Económicos')
             .first()
@@ -120,17 +121,20 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
                 `Failed to extract Declaración de Intereses Económicos URL: ${(error as Error).message}`,
               );
             }),
+          // Email
           page
             .locator('a[href^="mailto:"]')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => (link ?? '').replace('mailto:', '')),
+          // Facebook
           page
             .locator('a:has(img[alt="facebook"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
+          // Date of Birth
           page
             .locator('text=/Nacid[oa] el/')
             .first()
@@ -142,6 +146,7 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
               return date;
             })
             .catch(() => undefined),
+          // Photo
           page
             .locator('img[alt="Card image cap"]')
             .first()
@@ -149,12 +154,14 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
             .catch(() => {
               throw new Error('Failed to extract Foto URL');
             }),
+          // Instagram
           page
             .locator('a:has(img[alt="instagram"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
+          // Legislatures
           page
             .locator('#_diputadomodule_legislaturasDiputado option')
             .all()
@@ -168,18 +175,21 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
               ),
             )
             .catch(() => [] as number[]),
+          // LinkedIn
           page
             .locator('a:has(img[alt="linkedin"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
+          // Twitter
           page
             .locator('a:has(img[alt="twitter"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
+          // Web
           page
             .locator('a:has(img[alt="personal-web"])')
             .first()
@@ -191,14 +201,18 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
         subscriber.next({
           CIRCUNSCRIPCION: deputy.idCircunscripcion,
           COD_PARLAMENTARIO: deputy.codParlamentario,
-          DECLARACION_ACTIVIDADES_URL,
-          DECLARACION_BIENES_URL,
-          DECLARACION_INTERESES_URL,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          DECLARACION_ACTIVIDADES_URL: DECLARACION_ACTIVIDADES_URL!,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          DECLARACION_BIENES_URL: DECLARACION_BIENES_URL!,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          DECLARACION_INTERESES_URL: DECLARACION_INTERESES_URL!,
           EMAIL,
           FACEBOOK,
           FECHA_NACIMIENTO,
           FORMACION: deputy.formacion,
-          FOTO_URL,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          FOTO_URL: FOTO_URL!,
           GENERO: deputy.genero,
           GRUPO: deputy.grupo,
           INSTAGRAM,
@@ -219,7 +233,7 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
       } finally {
         await page.close();
       }
-    });
+    })();
   });
 };
 
