@@ -1,7 +1,7 @@
 import { Observable, merge, retry } from 'rxjs';
 
 import { fetch, launch } from './network/index.ts';
-import * as person from './sources/person-detail.ts';
+import * as intervention from './sources/intervention.ts';
 
 import type { Finder, Needle, Retriever } from './sources/types.ts';
 
@@ -28,7 +28,7 @@ function retrieve<T>(
       merge(
         ...needles.map((needle) =>
           retriever({ ...needle, browser, fetch }).pipe(
-            retry({ delay: 15 * 1000 }),
+            retry({ delay: 15 * 1000, count: 1 }),
           ),
         ),
       ).subscribe({
@@ -48,9 +48,12 @@ function retrieve<T>(
   });
 }
 
-const needles = await find(person.finder);
-retrieve(person.retriever, needles).subscribe({
+const needles = await find(intervention.finder);
+retrieve(intervention.retriever, needles).subscribe({
   complete: () => void browser.close(),
-  error: console.error,
+  error(error) {
+    console.error(error);
+    void browser.close();
+  },
   next: console.log,
 });

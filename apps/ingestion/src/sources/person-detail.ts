@@ -75,8 +75,10 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
       const page = await browser.newPage();
 
       try {
+        // Navigate to the deputy page
         await page.goto(url);
 
+        // Extract all info
         const [
           DECLARACION_ACTIVIDADES_URL,
           DECLARACION_BIENES_URL,
@@ -231,6 +233,7 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
         );
         subscriber.error(error);
       } finally {
+        // Close the page no matter what
         await page.close();
       }
     })();

@@ -8,12 +8,16 @@ interface CommonOptions {
 
 type FinderOptions = CommonOptions;
 
-type Finder = (options: FinderOptions) => Promise<string | string[] | Needle[]>;
+type Finder = (
+  options: FinderOptions,
+) => Promisable<string | string[] | Needle[]>;
 
 interface Needle {
   url: string;
   extra?: unknown;
 }
+
+type Promisable<T> = T | Promise<T>;
 
 type RetrieverOptions = CommonOptions & Needle;
 
