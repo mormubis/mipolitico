@@ -2,6 +2,11 @@ import { findDeputies, findDeputyById } from '@congress/database';
 
 import { setCacheHeaders } from '../middleware/cache.ts';
 import { setPaginationHeaders } from '../middleware/pagination.ts';
+import {
+  deputySchema,
+  errorSchema,
+  paginationQuerySchema,
+} from '../schemas/openapi.ts';
 import { deputyQuerySchema } from '../schemas/query.ts';
 
 import type { FastifyInstance } from 'fastify';
@@ -11,78 +16,141 @@ import type { FastifyInstance } from 'fastify';
  */
 export function registerDeputyRoutes(app: FastifyInstance): void {
   // GET /api/v1/deputies - List deputies with filtering, pagination, sorting
-  app.get('/api/v1/deputies', async (request, reply) => {
-    // Parse and validate query parameters
-    const query = deputyQuerySchema.parse(request.query);
+  app.get(
+    '/api/v1/deputies',
+    {
+      schema: {
+        tags: ['deputies'],
+        summary: 'List all deputies',
+        description:
+          'Returns a paginated list of deputies with optional filtering by legislature, constituency, parliamentary group, or name.',
+        querystring: {
+          type: 'object',
+          properties: {
+            ...paginationQuerySchema,
+            legislature: {
+              type: 'integer',
+              description: 'Filter by legislature number',
+            },
+            constituency: {
+              type: 'string',
+              description: 'Filter by constituency name',
+            },
+            parliamentaryGroup: {
+              type: 'string',
+              description: 'Filter by parliamentary group',
+            },
+            name: {
+              type: 'string',
+              description: 'Filter by deputy name (partial match)',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'array',
+            items: deputySchema,
+            description:
+              'List of deputies. Check X-Total-Count, X-Page, and X-Per-Page headers for pagination info.',
+          },
+          400: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      // Parse and validate query parameters
+      const query = deputyQuerySchema.parse(request.query);
 
-    // Extract filters, pagination, and sorting
-    const filters = {
-      legislature: query.legislature,
-      constituency: query.constituency,
-      parliamentaryGroup: query.parliamentaryGroup,
-      name: query.name,
-    };
+      // Extract filters, pagination, and sorting
+      const filters = {
+        legislature: query.legislature,
+        constituency: query.constituency,
+        parliamentaryGroup: query.parliamentaryGroup,
+        name: query.name,
+      };
 
-    // Handle page-based pagination (convert to offset)
-    const offset = query.page ? (query.page - 1) * query.limit : query.offset;
+      // Handle page-based pagination (convert to offset)
+      const offset = query.page ? (query.page - 1) * query.limit : query.offset;
 
-    const pagination = {
-      limit: query.limit,
-      offset,
-    };
+      const pagination = {
+        limit: query.limit,
+        offset,
+      };
 
-    const sort = {
-      sortBy: query.sort,
-      order: query.order,
-    };
+      const sort = {
+        sortBy: query.sort,
+        order: query.order,
+      };
 
-    // Execute query
-    const result = await findDeputies(filters, pagination, sort);
+      // Execute query
+      const result = await findDeputies(filters, pagination, sort);
 
-    // Set cache headers (deputies are relatively stable - use historical strategy)
-    setCacheHeaders(reply, 'historical');
+      // Set cache headers (deputies are relatively stable - use historical strategy)
+      setCacheHeaders(reply, 'historical');
 
-    // Set pagination headers
-    setPaginationHeaders(reply, result.total, result.limit, result.offset);
+      // Set pagination headers
+      setPaginationHeaders(reply, result.total, result.limit, result.offset);
 
-    // Set request ID header if provided
-    const requestId = request.headers['x-request-id'];
-    if (requestId) {
-      reply.header('X-Request-ID', requestId);
-    }
+      // Set request ID header if provided
+      const requestId = request.headers['x-request-id'];
+      if (requestId) {
+        reply.header('X-Request-ID', requestId);
+      }
 
-    // Return data directly (not wrapped)
-    return result.data;
-  });
+      // Return data directly (not wrapped)
+      return result.data;
+    },
+  );
 
   // GET /api/v1/deputies/:id - Get single deputy
-  app.get('/api/v1/deputies/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
+  app.get(
+    '/api/v1/deputies/:id',
+    {
+      schema: {
+        tags: ['deputies'],
+        summary: 'Get deputy by ID',
+        description: 'Returns a single deputy with person details.',
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Deputy ID (CUID format)' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: deputySchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
 
-    // Execute query
-    const deputy = await findDeputyById(id);
+      // Execute query
+      const deputy = await findDeputyById(id);
 
-    // Handle not found
-    if (!deputy) {
-      reply.status(404).send({
-        error: 'Deputy not found',
-        status: 404,
-      });
-      return;
-    }
+      // Handle not found
+      if (!deputy) {
+        reply.status(404).send({
+          error: 'Deputy not found',
+          status: 404,
+        });
+        return;
+      }
 
-    // Set cache headers (deputies are relatively stable - use historical strategy)
-    setCacheHeaders(reply, 'historical');
+      // Set cache headers (deputies are relatively stable - use historical strategy)
+      setCacheHeaders(reply, 'historical');
 
-    // Set request ID header if provided
-    const requestId = request.headers['x-request-id'];
-    if (requestId) {
-      reply.header('X-Request-ID', requestId);
-    }
+      // Set request ID header if provided
+      const requestId = request.headers['x-request-id'];
+      if (requestId) {
+        reply.header('X-Request-ID', requestId);
+      }
 
-    // Return data directly
-    return deputy;
-  });
+      // Return data directly
+      return deputy;
+    },
+  );
 
   // GET /api/v1/schema/deputies - Schema endpoint
   app.get('/api/v1/schema/deputies', async (request, reply) => {

@@ -2,6 +2,11 @@ import { findVotingSession, findVotingSessions } from '@congress/database';
 
 import { getCacheStrategy, setCacheHeaders } from '../middleware/cache.ts';
 import { setPaginationHeaders } from '../middleware/pagination.ts';
+import {
+  errorSchema,
+  paginationQuerySchema,
+  votingSessionSchema,
+} from '../schemas/openapi.ts';
 import { voteQuerySchema } from '../schemas/query.ts';
 
 import type { FastifyInstance } from 'fastify';
@@ -11,56 +16,130 @@ import type { FastifyInstance } from 'fastify';
  */
 export function registerVoteRoutes(app: FastifyInstance): void {
   // GET /api/v1/votes - List voting sessions with filtering, pagination, sorting
-  app.get('/api/v1/votes', async (request, reply) => {
-    // Parse and validate query parameters
-    const query = voteQuerySchema.parse(request.query);
+  app.get(
+    '/api/v1/votes',
+    {
+      schema: {
+        tags: ['votes'],
+        summary: 'List voting sessions',
+        description:
+          'Returns a paginated list of voting sessions with optional filtering by date, legislature, and session number.',
+        querystring: {
+          type: 'object',
+          properties: {
+            ...paginationQuerySchema,
+            legislature: {
+              type: 'integer',
+              description: 'Filter by legislature number',
+            },
+            sessionNumber: {
+              type: 'integer',
+              description: 'Filter by session number',
+            },
+            dateFrom: {
+              type: 'string',
+              format: 'date',
+              description: 'Filter votes from this date (YYYY-MM-DD)',
+            },
+            dateTo: {
+              type: 'string',
+              format: 'date',
+              description: 'Filter votes until this date (YYYY-MM-DD)',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'array',
+            items: votingSessionSchema,
+            description:
+              'List of voting sessions. Check X-Total-Count, X-Page, and X-Per-Page headers for pagination info.',
+          },
+          400: errorSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      // Parse and validate query parameters
+      const query = voteQuerySchema.parse(request.query);
 
-    // Extract filters, pagination, and sorting
-    const filters = {
-      legislature: query.legislature,
-      sessionNumber: query.sessionNumber,
-      dateFrom: query.dateFrom,
-      dateTo: query.dateTo,
-    };
+      // Extract filters, pagination, and sorting
+      const filters = {
+        legislature: query.legislature,
+        sessionNumber: query.sessionNumber,
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      };
 
-    // Handle page-based pagination (convert to offset)
-    const offset = query.page ? (query.page - 1) * query.limit : query.offset;
+      // Handle page-based pagination (convert to offset)
+      const offset = query.page ? (query.page - 1) * query.limit : query.offset;
 
-    const pagination = {
-      limit: query.limit,
-      offset,
-    };
+      const pagination = {
+        limit: query.limit,
+        offset,
+      };
 
-    const sort = {
-      sortBy: query.sort,
-      order: query.order,
-    };
+      const sort = {
+        sortBy: query.sort,
+        order: query.order,
+      };
 
-    // Execute query
-    const result = await findVotingSessions(filters, pagination, sort);
+      // Execute query
+      const result = await findVotingSessions(filters, pagination, sort);
 
-    // Determine cache strategy based on most recent vote date
-    const mostRecentDate =
-      result.data.length > 0 ? result.data[0].votingDate : undefined;
-    const cacheStrategy = getCacheStrategy(mostRecentDate);
-    setCacheHeaders(reply, cacheStrategy);
+      // Determine cache strategy based on most recent vote date
+      const mostRecentDate =
+        result.data.length > 0 ? result.data[0].votingDate : undefined;
+      const cacheStrategy = getCacheStrategy(mostRecentDate);
+      setCacheHeaders(reply, cacheStrategy);
 
-    // Set pagination headers
-    setPaginationHeaders(reply, result.total, result.limit, result.offset);
+      // Set pagination headers
+      setPaginationHeaders(reply, result.total, result.limit, result.offset);
 
-    // Set request ID header if provided
-    const requestId = request.headers['x-request-id'];
-    if (requestId) {
-      reply.header('X-Request-ID', requestId);
-    }
+      // Set request ID header if provided
+      const requestId = request.headers['x-request-id'];
+      if (requestId) {
+        reply.header('X-Request-ID', requestId);
+      }
 
-    // Return data directly
-    return result.data;
-  });
+      // Return data directly
+      return result.data;
+    },
+  );
 
   // GET /api/v1/votes/:legislature/:sessionNumber/:votingNumber - Get specific vote
   app.get(
     '/api/v1/votes/:legislature/:sessionNumber/:votingNumber',
+    {
+      schema: {
+        tags: ['votes'],
+        summary: 'Get voting session by composite key',
+        description:
+          'Returns a complete voting session including all individual deputy votes.',
+        params: {
+          type: 'object',
+          properties: {
+            legislature: {
+              type: 'integer',
+              description: 'Legislature number',
+            },
+            sessionNumber: {
+              type: 'integer',
+              description: 'Session number',
+            },
+            votingNumber: {
+              type: 'integer',
+              description: 'Voting number within session',
+            },
+          },
+          required: ['legislature', 'sessionNumber', 'votingNumber'],
+        },
+        response: {
+          200: votingSessionSchema,
+          404: errorSchema,
+        },
+      },
+    },
     async (request, reply) => {
       const { legislature, sessionNumber, votingNumber } = request.params as {
         legislature: string;
