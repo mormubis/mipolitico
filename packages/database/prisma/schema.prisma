@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Core entities
+model Person {
+  id            String   @id @default(cuid())
+  name          String
+  biography     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  deputies      Deputy[]
+  speeches      Speech[]
+  bureauMembers BureauMember[]
+
+  @@unique([name])
+}
+
+model Party {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  shortName String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deputies  Deputy[]
+}
+
+// Deputies (source: person.ts)
+model Deputy {
+  id                  String   @id @default(cuid())
+  personId            String
+  partyId             String?
+  constituency        String
+  startDate           DateTime
+  fullConditionDate   DateTime?
+  parliamentaryGroup  String
+  electoralFormation  String
+  legislature         Int      @default(15)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  person              Person   @relation(fields: [personId], references: [id])
+  party               Party?   @relation(fields: [partyId], references: [id])
+
+  @@unique([personId, legislature, startDate])
+}
+
+// Voting sessions (source: voting.ts - session level)
+model VotingSession {
+  id                String   @id @default(cuid())
+  legislature       Int
+  sessionNumber     Int
+  votingNumber      Int
+  votingDate        DateTime
+  title             String
+  description       String
+  byAssent          Boolean  @default(false)
+  totalPresent      Int
+  totalFor          Int
+  totalAgainst      Int
+  totalAbstention   Int
+  totalNoVote       Int
+  sourceUrl         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  votes             Vote[]
+
+  @@unique([legislature, sessionNumber, votingNumber])
+}
+
+// Individual votes (source: voting.ts - deputy level)
+model Vote {
+  id              String        @id @default(cuid())
+  sessionId       String
+  deputySeat      String
+  deputyName      String
+  deputyGroup     String
+  vote            String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  session         VotingSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, deputySeat])
+}
+
+// Speeches/Interventions (source: intervention.ts)
+model Speech {
+  id            String   @id @default(cuid())
+  personId      String?
+  sessionId     String
+  sessionDate   DateTime
+  sessionTitle  String
+  sessionUrl    String
+  speakerRaw    String
+  speakerName   String
+  speakerRole   String?
+  text          String
+  orderInSession Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  person        Person?  @relation(fields: [personId], references: [id])
+
+  @@unique([sessionId, orderInSession])
+}
+
+// Bureau members (source: bureau.ts)
+model BureauMember {
+  id          String    @id @default(cuid())
+  personId    String?
+  name        String
+  position    String
+  organ       String
+  partyGroup  String
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  person      Person?   @relation(fields: [personId], references: [id])
+
+  @@unique([name, organ, position, startDate])
+}
