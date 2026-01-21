@@ -3,6 +3,7 @@ import helmet from '@fastify/helmet';
 import Fastify from 'fastify';
 
 import { config } from './config.ts';
+import { registerHealthRoutes } from './routes/health.ts';
 
 import type { FastifyInstance } from 'fastify';
 
@@ -24,6 +25,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(cors, {
     origin: true, // Permissive CORS for public API
   });
+
+  // Register health routes (not under /api/v1)
+  registerHealthRoutes(app);
 
   return app;
 }
