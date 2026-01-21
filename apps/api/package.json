@@ -1,0 +1,30 @@
+{
+  "name": "@congress/api",
+  "version": "1.0.0",
+  "description": "REST API for Spanish Congress data",
+  "type": "module",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "format": "pnpm run format:ci --write",
+    "format:ci": "prettier --ignore-unknown --list-different \"**/*\"",
+    "lint": "pnpm run lint:style && pnpm run lint:types",
+    "lint:ci": "pnpm run lint:style --max-warnings 0 && pnpm run lint:types",
+    "lint:style": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "lint:types": "tsc --noEmit --project tsconfig.json",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@congress/database": "workspace:*",
+    "@fastify/cors": "^10.0.1",
+    "@fastify/helmet": "^12.0.1",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2"
+  }
+}
