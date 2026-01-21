@@ -1,22 +1,26 @@
 {
-  "name": "@congress/database",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "src/index.ts",
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@prisma/adapter-libsql": "^7.3.0",
+    "@prisma/client": "^7.3.0",
+    "prisma": "^7.3.0",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.9"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
-  "dependencies": {
-    "@prisma/client": "latest",
-    "prisma": "latest"
-  },
-  "devDependencies": {
-    "@types/node": "^20"
-  },
+  "main": "src/index.ts",
+  "name": "@congress/database",
   "scripts": {
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:studio": "prisma studio"
-  }
+    "db:studio": "prisma studio",
+    "test:integration": "node src/test/integration.test.ts"
+  },
+  "type": "module",
+  "version": "0.1.0"
 }
