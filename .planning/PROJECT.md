@@ -73,6 +73,17 @@ Researchers and journalists can search across all Spanish Congress open data in 
 - **Tech stack**: Locked to Node.js/TypeScript (existing codebase)
 - **Budget**: Scraping must respect congreso.es rate limits and robots.txt
 
+## Current Milestone: v1.0 - MVP
+
+**Goal:** Build production-ready API exposing Congress data with daily refresh automation
+
+**Target Features:**
+- SQLite storage with Repository pattern for 5 data sources
+- REST API with filtering, pagination, and caching (REQ-001 through REQ-013)
+- Daily refresh scheduler for all sources
+- Commissions data scraper
+- Full API documentation with OpenAPI spec
+
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
@@ -84,4 +95,4 @@ Researchers and journalists can search across all Spanish Congress open data in 
 
 ---
 
-*Last updated: 2026-01-21 after initialization*
+*Last updated: 2026-01-21 after milestone v1.0 initialization*

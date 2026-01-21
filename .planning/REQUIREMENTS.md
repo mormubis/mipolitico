@@ -1,7 +1,7 @@
 # Requirements: Spanish Congress Open Data API
 
 **Defined:** 2026-01-21
-**Status:** Ready for roadmap creation
+**Status:** Requirements finalized, roadmap created
 **Scope Phase:** v1 (MVP), v2 (Expansion), Backlog (Deferred)
 
 ---
@@ -33,6 +33,7 @@ Foundation API with existing data sources and basic querying.
 - Versioning via URL path (`/api/v1/...`)
 - All endpoints return JSON (primary format)
 - Query parameters for filtering and pagination
+- **Phase:** 2 (HTTP API Layer)
 
 **REQ-002: Entity retrieval endpoints**
 - `GET /api/v1/deputies` — List all deputies with pagination
@@ -42,6 +43,7 @@ Foundation API with existing data sources and basic querying.
 - `GET /api/v1/speeches` — List speeches with pagination
 - `GET /api/v1/bureaus` — List bureau members
 - `GET /api/v1/commissions` — List commissions
+- **Phase:** 2 (HTTP API Layer)
 
 **REQ-003: Filtering capabilities**
 - Date range filtering: `?date_from=2024-01-01&date_to=2024-12-31`
@@ -49,33 +51,39 @@ Foundation API with existing data sources and basic querying.
 - Person filtering: `?deputy=:id` or `?deputy_name=searchterm`
 - Status filtering: `?status=active|historical`
 - Combine multiple filters: `?date_from=2024-01-01&legislature=15&deputy=12345`
+- **Phase:** 2 (HTTP API Layer)
 
 **REQ-004: Pagination**
 - Default limit: 20 results per page
 - Max limit: 250 results per page
 - Offset-based: `?limit=50&offset=100`
 - Response includes: `total_count`, `limit`, `offset` for client-side calculation
+- **Phase:** 2 (HTTP API Layer)
 
 **REQ-005: Export format**
 - JSON only for v1 (primary API responses)
 - CSV export deferred to v2 (can add `?format=csv` later)
 - Bulk download archives deferred to v2
+- **Phase:** 2 (HTTP API Layer)
 
 **REQ-006: API documentation**
 - OpenAPI 3.x specification
 - Example requests and responses for each endpoint
 - Filtering guide and query parameter documentation
 - Error codes and status codes documented
+- **Phase:** 2 (HTTP API Layer)
 
 **REQ-007: Rate limiting**
 - No rate limits for v1 (remove friction for early adopters)
 - API key requirement deferred to v2 (if abuse becomes apparent)
 - Client IP tracking for monitoring only (no throttling)
+- **Phase:** 2 (HTTP API Layer)
 
 **REQ-008: Error handling**
 - HTTP status codes: 400 (bad request), 404 (not found), 500 (server error)
 - JSON error responses: `{ "error": "message", "status": 400 }`
 - Clear error messages for invalid filters or parameters
+- **Phase:** 2 (HTTP API Layer)
 
 ### Storage
 
@@ -85,11 +93,13 @@ Foundation API with existing data sources and basic querying.
 - Allows future zero-downtime migration to PostgreSQL (Phase 5)
 - Schema includes: deputies, votes, speeches, bureau_members, commissions tables
 - Indexes on common query fields (date, legislature, person_id)
+- **Phase:** 1 (Storage Layer Foundation)
 
 **REQ-010: Idempotent data writes**
 - UPSERT operations: INSERT OR REPLACE on conflict
 - Prevents duplicate records on scraper retry
 - Enables safe daily refresh without data accumulation
+- **Phase:** 1 (Storage Layer Foundation)
 
 ### Data Validation
 
@@ -97,6 +107,7 @@ Foundation API with existing data sources and basic querying.
 - Zod schemas for all API responses (already in use)
 - Validate scraped data at ingestion time
 - Return validation errors in response
+- **Phase:** 1 (Storage Layer Foundation)
 
 ### Change Detection (Internal Use)
 
@@ -104,6 +115,7 @@ Foundation API with existing data sources and basic querying.
 - Track what changed between daily refreshes
 - Used internally for monitoring and diagnostics
 - NOT exposed via API in v1 (deferred to v2 as optional query endpoint)
+- **Phase:** 5 (Production Readiness)
 
 ### Caching
 
@@ -112,6 +124,7 @@ Foundation API with existing data sources and basic querying.
 - `Cache-Control: public, max-age=300` (5 minutes) for recent data and "latest" queries
 - ETag support for conditional requests
 - CDN-friendly for future scaling
+- **Phase:** 2 (HTTP API Layer)
 
 ---
 
@@ -181,15 +194,15 @@ Features that are valuable but explicitly deferred or rejected for now.
 
 API is ready to ship when:
 
-- [x] All v1 requirements implemented (REQ-001 through REQ-013)
-- [x] Data from all v1 sources (deputies, votes, speeches, bureau, commissions) is scraped and stored
-- [x] All 5 main endpoints respond with correct filtering and pagination
-- [x] Documentation is complete with examples
-- [x] Error handling covers all edge cases (missing fields, invalid filters)
-- [x] Change detection is functional (tracks between refreshes)
-- [x] Cache headers are properly set
-- [x] Repository pattern is implemented (enables future PostgreSQL migration)
-- [x] Tests pass for critical paths (data parsing, schema validation, API responses)
+- [ ] All v1 requirements implemented (REQ-001 through REQ-013)
+- [ ] Data from all v1 sources (deputies, votes, speeches, bureau, commissions) is scraped and stored
+- [ ] All 5 main endpoints respond with correct filtering and pagination
+- [ ] Documentation is complete with examples
+- [ ] Error handling covers all edge cases (missing fields, invalid filters)
+- [ ] Change detection is functional (tracks between refreshes)
+- [ ] Cache headers are properly set
+- [ ] Repository pattern is implemented (enables future PostgreSQL migration)
+- [ ] Tests pass for critical paths (data parsing, schema validation, API responses)
 
 ---
 
@@ -221,15 +234,36 @@ These should be answered during Phase 1 research before starting Phase 2:
 
 ---
 
-## Mapping to Roadmap Phases
+## Traceability
 
-**Phase 1: Storage Layer** → Implements REQ-009, REQ-010, REQ-011
-**Phase 2: HTTP API** → Implements REQ-001 through REQ-008, REQ-013
-**Phase 3: Job Scheduling** → Automates data refresh for all v1 sources
-**Phase 4: Expand Data** → Adds commissions scraper, other sources
-**Phase 5: Monitoring & Optimization** → Adds observability, considers PostgreSQL migration (REQ-009 alternative)
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| REQ-001 | Phase 2 | Pending |
+| REQ-002 | Phase 2 | Pending |
+| REQ-003 | Phase 2 | Pending |
+| REQ-004 | Phase 2 | Pending |
+| REQ-005 | Phase 2 | Pending |
+| REQ-006 | Phase 2 | Pending |
+| REQ-007 | Phase 2 | Pending |
+| REQ-008 | Phase 2 | Pending |
+| REQ-009 | Phase 1 | Pending |
+| REQ-010 | Phase 1 | Pending |
+| REQ-011 | Phase 1 | Pending |
+| REQ-012 | Phase 5 | Pending |
+| REQ-013 | Phase 2 | Pending |
+
+**Implicit Requirements:**
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| Daily refresh automation | Phase 3 | Pending |
+| Commissions scraper | Phase 4 | Pending |
+| Monitoring and observability | Phase 5 | Pending |
+
+**Coverage:** 13 explicit + 3 implicit = 16 total requirements mapped to phases ✓
 
 ---
 
 *Requirements defined: 2026-01-21*
-*Next: Roadmap creation with phase breakdown*
+*Roadmap created: 2026-01-21*
+*Next: Phase 1 planning*
