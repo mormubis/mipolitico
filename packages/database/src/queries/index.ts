@@ -30,3 +30,6 @@ export function applyPaginationDefaults(
 
 // Re-export query functions from entity-specific files
 export * from './deputies.ts';
+export * from './votes.ts';
+export * from './speeches.ts';
+export * from './bureaus.ts';
