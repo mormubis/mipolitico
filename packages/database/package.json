@@ -3,6 +3,7 @@
     "@libsql/client": "^0.17.0",
     "@prisma/adapter-libsql": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "dotenv": "^17.2.3",
     "prisma": "^7.3.0",
     "zod": "^4.3.5"
   },

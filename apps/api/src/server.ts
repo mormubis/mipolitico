@@ -1,5 +1,14 @@
+import { config as dotenvConfig } from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { buildApp } from './app.ts';
 import { config } from './config.ts';
+
+
+// Load environment variables from .env file
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenvConfig({ path: path.join(__dirname, '../.env') });
 
 /**
  * Start the API server
