@@ -27,3 +27,6 @@ export function applyPaginationDefaults(
     offset: input.offset ?? 0,
   };
 }
+
+// Re-export query functions from entity-specific files
+export * from './deputies.ts';
