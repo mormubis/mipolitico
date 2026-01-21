@@ -13,6 +13,9 @@ export default defineConfig(
   importing.flatConfigs.typescript,
   prettier,
   {
+    ignores: ['.planning/**'],
+  },
+  {
     languageOptions: {
       parserOptions: {
         projectService: true,
