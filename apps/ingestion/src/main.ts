@@ -105,6 +105,98 @@ async function runVoting(): Promise<PersistResult> {
   );
 }
 
+/**
+ * Standalone person (deputies) scraper with browser lifecycle
+ * For use in job files
+ */
+async function runPersonStandalone(): Promise<PersistResult> {
+  const jobBrowser = await launch({ headless: true });
+
+  try {
+    console.log('\n=== Running person (deputies) scraper ===');
+
+    // Find needles
+    let result = await person.finder({ browser: jobBrowser, fetch });
+    if (!Array.isArray(result)) {
+      result = [result];
+    }
+    const needles = result.map((item) =>
+      typeof item === 'object' ? item : { url: item },
+    );
+    console.log(`Found ${String(needles.length)} source(s)`);
+
+    // Retrieve and persist
+    const observable = new Observable((subscriber) => {
+      try {
+        merge(
+          ...needles.map((needle) =>
+            person
+              .retriever({ ...needle, browser: jobBrowser, fetch })
+              .pipe(retry({ delay: 15 * 1000, count: 1 })),
+          ),
+        ).subscribe({
+          complete: () => { subscriber.complete(); },
+          error: (error) => { subscriber.error(error); },
+          next: (value) => { subscriber.next(value); },
+        });
+      } catch (cause) {
+        subscriber.error(cause);
+      }
+    });
+
+    return await lastValueFrom(
+      observable.pipe(persistDeputies({ legislature: 15 })),
+    );
+  } finally {
+    await jobBrowser.close();
+  }
+}
+
+/**
+ * Standalone voting scraper with browser lifecycle
+ * For use in job files
+ */
+async function runVotingStandalone(): Promise<PersistResult> {
+  const jobBrowser = await launch({ headless: true });
+
+  try {
+    console.log('\n=== Running voting scraper ===');
+
+    // Find needles
+    let result = await voting.finder({ browser: jobBrowser, fetch });
+    if (!Array.isArray(result)) {
+      result = [result];
+    }
+    const needles = result.map((item) =>
+      typeof item === 'object' ? item : { url: item },
+    );
+    console.log(`Found ${String(needles.length)} source(s)`);
+
+    // Retrieve and persist
+    const observable = new Observable((subscriber) => {
+      try {
+        merge(
+          ...needles.map((needle) =>
+            voting
+              .retriever({ ...needle, browser: jobBrowser, fetch })
+              .pipe(retry({ delay: 15 * 1000, count: 1 })),
+          ),
+        ).subscribe({
+          complete: () => { subscriber.complete(); },
+          error: (error) => { subscriber.error(error); },
+          next: (value) => { subscriber.next(value); },
+        });
+      } catch (cause) {
+        subscriber.error(cause);
+      }
+    });
+
+    return await lastValueFrom(observable.pipe(persistVotes()));
+  } finally {
+    await jobBrowser.close();
+  }
+}
+
 async function runIntervention(): Promise<PersistResult> {
   if (!browser) throw new Error('Browser not initialized');
   console.log('\n=== Running intervention (speeches) scraper ===');
@@ -217,3 +309,6 @@ async function main() {
 }
 
 void main();
+
+// Export standalone scraper functions for job files
+export { runPersonStandalone, runVotingStandalone };
