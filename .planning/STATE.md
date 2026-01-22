@@ -8,23 +8,23 @@ See: .planning/PROJECT.md (updated 2026-01-21)
 Congress open data in one place to find what they need — instead of navigating
 multiple fragmented sources on congreso.es.
 
-**Current focus:** Phase 2 - HTTP API Layer
+**Current focus:** Phase 3 - Job Scheduling
 
 ## Current Position
 
-Phase: 2 of 5 (HTTP API Layer) Plan: 4 of 4 complete (02-04-PLAN.md) Status:
-Phase complete Last activity: 2026-01-22 — Completed 02-04-PLAN.md (OpenAPI
-Documentation and Swagger UI)
+Phase: 3 of 5 (Job Scheduling) Plan: 1 of 3 complete (03-01-PLAN.md) Status: In
+progress Last activity: 2026-01-22 — Completed 03-01-PLAN.md (Bree Scheduler
+Setup)
 
-Progress: [██████████] 44%
+Progress: [██████████░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 7
-- Average duration: 0.9 hours per plan
-- Total execution time: 6.0 hours
+- Total plans completed: 8
+- Average duration: 0.8 hours per plan
+- Total execution time: 6.1 hours
 
 **By Phase:**
 
@@ -32,6 +32,7 @@ Progress: [██████████] 44%
 | ----- | ----- | ----- | -------- |
 | 1     | 3/3   | 4.5h  | 1.5h     |
 | 2     | 4/4   | 1.5h  | 0.4h     |
+| 3     | 1/3   | 0.1h  | 0.1h     |
 
 **Recent Trend:**
 
@@ -79,6 +80,14 @@ affecting current work:
   openapi.ts for consistency across endpoints
 - **Schema endpoints excluded from OpenAPI (02-04):** /api/v1/schema/\*
   endpoints provide internal metadata, not part of public API contract
+- **Bree for job scheduling (03-01):** Worker thread isolation prevents scraper
+  failures from crashing main process, built-in cron support
+- **Job registry pattern (03-01):** Central metadata management in jobs/index.ts
+  allows enabling/disabling jobs without modifying scheduler code
+- **Conditional startup modes (03-01):** Scheduler mode by default, manual
+  scrape mode with --source or --no-scheduler for backwards compatibility
+- **MAX_CONCURRENT_JOBS = 1 (03-01):** SQLite doesn't handle concurrent writes
+  well, sequential job execution prevents contention
 
 ### Pending Todos
 
@@ -98,7 +107,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-22T00:01:04Z Stopped at: Completed 02-04-PLAN.md Resume
+Last session: 2026-01-22T20:37:20Z Stopped at: Completed 03-01-PLAN.md Resume
 file: None
 
 ---
