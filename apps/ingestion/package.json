@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@congress/database": "workspace:*",
+    "bree": "^9.2.8",
     "oboe": "^2.1.5",
     "p-defer": "^4.0.1",
     "p-deferred": "^1.0.0",
@@ -12,10 +14,10 @@
     "tslib": "^2.3.0",
     "zod": "^4.0.17"
   },
+  "description": "",
   "devDependencies": {
     "@types/oboe": "^2.1.4"
   },
-  "description": "",
   "main": "index.js",
   "name": "@congress/ingestion",
   "private": true,
@@ -26,6 +28,11 @@
     "lint:ci": "pnpm run lint:style --max-warnings 0 && pnpm run lint:types",
     "lint:style": "eslint \"app/**/*.{ts,tsx}\" --fix",
     "lint:types": "tsc --noEmit --project tsconfig.json",
+    "scrape": "tsx src/main.ts",
+    "scrape:person": "tsx src/main.ts --source=person",
+    "scrape:voting": "tsx src/main.ts --source=voting",
+    "scrape:intervention": "tsx src/main.ts --source=intervention",
+    "scrape:bureau": "tsx src/main.ts --source=bureau",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "type": "module",
