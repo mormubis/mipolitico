@@ -3,3 +3,4 @@ export { upsertDeputies } from './deputies.ts';
 export { upsertVotingRecords } from './votes.ts';
 export { upsertSpeeches } from './speeches.ts';
 export { upsertBureauMembers } from './bureaus.ts';
+export { updateScraperMetadata, getScraperMetadata } from './metadata.ts';

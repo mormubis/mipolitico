@@ -129,3 +129,17 @@ model BureauMember {
 
   @@unique([name, organ, position, startDate])
 }
+
+// Scraper metadata (for monitoring and retry tracking)
+model ScraperMetadata {
+  id                  String   @id @default(cuid())
+  scraperType         String   @unique
+  lastSuccessfulRun   DateTime?
+  lastAttemptedRun    DateTime?
+  attemptCount        Int      @default(0)
+  lastError           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([scraperType])
+}
