@@ -12,19 +12,19 @@ multiple fragmented sources on congreso.es.
 
 ## Current Position
 
-Phase: 3 of 5 (Job Scheduling) Plan: 1 of 3 complete (03-01-PLAN.md) Status: In
-progress Last activity: 2026-01-22 — Completed 03-01-PLAN.md (Bree Scheduler
-Setup)
+Phase: 3 of 5 (Job Scheduling) Plan: 2 of 3 complete (03-02-PLAN.md) Status: In
+progress Last activity: 2026-01-22 — Completed 03-02-PLAN.md (Per-Source Job
+Isolation with Independent Scheduling)
 
-Progress: [██████████░░░░] 50%
+Progress: [███████████░░░] 55%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 8
-- Average duration: 0.8 hours per plan
-- Total execution time: 6.1 hours
+- Total plans completed: 9
+- Average duration: 0.7 hours per plan
+- Total execution time: 6.2 hours
 
 **By Phase:**
 
@@ -32,7 +32,7 @@ Progress: [██████████░░░░] 50%
 | ----- | ----- | ----- | -------- |
 | 1     | 3/3   | 4.5h  | 1.5h     |
 | 2     | 4/4   | 1.5h  | 0.4h     |
-| 3     | 1/3   | 0.1h  | 0.1h     |
+| 3     | 2/3   | 0.2h  | 0.1h     |
 
 **Recent Trend:**
 
@@ -88,6 +88,12 @@ affecting current work:
   scrape mode with --source or --no-scheduler for backwards compatibility
 - **MAX_CONCURRENT_JOBS = 1 (03-01):** SQLite doesn't handle concurrent writes
   well, sequential job execution prevents contention
+- **Standalone scraper functions (03-02):** runPersonStandalone and
+  runVotingStandalone with independent browser lifecycle enable job file imports
+- **Try-catch job isolation (03-02):** Job errors logged to stderr, not thrown,
+  allowing scheduler to continue with other jobs
+- **Staggered cron schedules (03-02):** Deputies at 2 AM UTC, voting at 3 AM UTC
+  prevents concurrent database writes
 
 ### Pending Todos
 
@@ -107,7 +113,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-22T20:37:20Z Stopped at: Completed 03-01-PLAN.md Resume
+Last session: 2026-01-22T20:42:33Z Stopped at: Completed 03-02-PLAN.md Resume
 file: None
 
 ---
