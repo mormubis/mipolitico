@@ -15,6 +15,8 @@ export interface JobMetadata {
   path: string;
   /** Whether this job is enabled for scheduling */
   enabled: boolean;
+  /** Cron expression defining when the job runs (e.g., "0 2 * * *" for 2:00 AM UTC daily) */
+  cron: string;
 }
 
 /**
@@ -23,18 +25,23 @@ export interface JobMetadata {
  * Jobs are defined here but implemented in separate files in the jobs/ directory.
  * When a job is enabled, Bree will load and schedule it according to its configuration.
  *
- * Note: Jobs are currently disabled until Plan 03-02 creates the job files.
+ * Cron schedule notes:
+ * - Deputies job: "0 2 * * *" = 2:00 AM UTC daily
+ * - Voting job: "0 3 * * *" = 3:00 AM UTC daily
+ * - Staggered 1-hour offset prevents concurrent database writes
  */
 export const JOBS: JobMetadata[] = [
   {
     name: 'deputies',
     path: './deputies.ts',
-    enabled: false, // Will be enabled in Plan 03-02
+    enabled: true,
+    cron: '0 2 * * *', // 2:00 AM UTC daily
   },
   {
     name: 'voting',
     path: './voting.ts',
-    enabled: false, // Will be enabled in Plan 03-02
+    enabled: true,
+    cron: '0 3 * * *', // 3:00 AM UTC daily (1 hour after deputies)
   },
 ];
 
