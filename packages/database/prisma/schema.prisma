@@ -1,15 +1,22 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "sqlite"
 }
 
-// Core entities
+/// Represents an individual in the Spanish Congress (deputy, speaker, or official).
+/// Serves as the identity anchor for person-centric data. Deputies, speeches, and bureau
+/// members link to Person after entity resolution. Name is the natural key for deduplication.
+///
+/// Data source: person.ts scraper (DiputadosActivos JSON)
 model Person {
   id            String   @id @default(cuid())
+  /// Full name of the person. Used as the natural key for deduplication across sources.
   name          String
+  /// Optional biography text from official congress profile.
   biography     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -18,12 +25,19 @@ model Person {
   speeches      Speech[]
   bureauMembers BureauMember[]
 
+  /// Ensures one Person record per unique name. Deduplicates across multiple data sources.
   @@unique([name])
 }
 
+/// Represents a political party in the Spanish Congress.
+/// Tracks party metadata for deputy affiliations and historical records.
+///
+/// Data source: party.ts scraper
 model Party {
   id        String   @id @default(cuid())
+  /// Full official name of the party.
   name      String   @unique
+  /// Optional abbreviated party name or acronym (e.g., "PSOE", "PP").
   shortName String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -31,16 +45,32 @@ model Party {
   deputies  Deputy[]
 }
 
-// Deputies (source: person.ts)
+/// Represents a person's term as a parliamentary deputy in a specific legislature.
+/// Captures deputy metadata including electoral and parliamentary group information.
+/// A person may have multiple Deputy records across different legislatures if re-elected.
+///
+/// Data source: person.ts scraper (DiputadosActivos JSON)
 model Deputy {
   id                  String   @id @default(cuid())
+  /// Reference to the Person who holds this deputy seat.
   personId            String
+  /// Optional reference to the Party. Null until entity resolution is complete.
+  /// Some deputies may not have a matched party entity initially.
   partyId             String?
+  /// Electoral district/constituency the deputy represents.
   constituency        String
+  /// Date deputy assumed office in this legislature.
   startDate           DateTime
+  /// Date deputy achieved full voting rights. May differ from startDate for substitutes
+  /// who initially served in a limited capacity. Null if not applicable or unknown.
   fullConditionDate   DateTime?
+  /// Parliamentary group (Grupo Parlamentario) the deputy belongs to. May differ from
+  /// electoral formation due to political realignments post-election.
   parliamentaryGroup  String
+  /// Electoral coalition or list the deputy was elected under.
   electoralFormation  String
+  /// Legislature number. Defaults to 15 (current legislature as of 2026-01).
+  /// Used for historical data partitioning across multiple legislatures.
   legislature         Int      @default(15)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -48,98 +78,194 @@ model Deputy {
   person              Person   @relation(fields: [personId], references: [id])
   party               Party?   @relation(fields: [partyId], references: [id])
 
+  /// Ensures one deputy record per person, per legislature, per term start.
+  /// Allows same person to serve multiple non-consecutive terms if re-elected.
   @@unique([personId, legislature, startDate])
 }
 
-// Voting sessions (source: voting.ts - session level)
+/// Represents a plenary voting session with aggregate results.
+/// Contains session-level metadata and denormalized vote counts for efficient analytics.
+/// Individual votes are stored separately in the Vote model.
+///
+/// Data source: voting.ts scraper (Votaciones JSON)
 model VotingSession {
   id                String   @id @default(cuid())
+  /// Legislature number for historical partitioning.
   legislature       Int
+  /// Session sequence number within the legislature.
   sessionNumber     Int
+  /// Voting number within the session.
   votingNumber      Int
+  /// Date and time of the voting session.
   votingDate        DateTime
+  /// Title or subject of the vote (e.g., "Proyecto de Ley...").
   title             String
+  /// Extended description or voting topic details.
   description       String
+  /// True if motion passed by unanimous consent without individual recorded votes.
+  /// When true, individual Vote records may not be available.
   byAssent          Boolean  @default(false)
+  /// Denormalized: Total deputies present during the vote.
+  /// Enables efficient analytics without aggregating Vote table.
   totalPresent      Int
+  /// Denormalized: Deputies who voted affirmatively.
   totalFor          Int
+  /// Denormalized: Deputies who voted negatively.
   totalAgainst      Int
+  /// Denormalized: Deputies who abstained.
   totalAbstention   Int
+  /// Denormalized: Deputies who did not vote.
   totalNoVote       Int
+  /// URL to the original JSON data source for audit trail.
   sourceUrl         String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   votes             Vote[]
 
+  /// Ensures one session per legislature/session/voting combination.
+  /// Natural key: (legislature, sessionNumber, votingNumber).
   @@unique([legislature, sessionNumber, votingNumber])
 }
 
-// Individual votes (source: voting.ts - deputy level)
+/// Represents an individual deputy's vote in a voting session.
+/// Uses denormalized string fields (deputy name, group) to preserve historical record:
+/// deputies may change groups, be removed from office, or reconciliation with Person
+/// records may fail after the vote was cast. This model captures the vote exactly as cast.
+///
+/// Note: No direct relationship to Person/Deputy models. Uses deputySeat and deputyName
+/// as historical identifiers. Deputy reconciliation happens at analysis time, not storage.
+///
+/// Data source: voting.ts scraper (Votaciones JSON)
 model Vote {
   id              String        @id @default(cuid())
+  /// Reference to the VotingSession this vote belongs to.
   sessionId       String
+  /// Seat identifier (e.g., deputy number or seat designation) at time of vote.
   deputySeat      String
+  /// Deputy name as recorded in voting record. Denormalized for historical accuracy.
   deputyName      String
+  /// Parliamentary group (Grupo Parlamentario) at time of vote. Denormalized as
+  /// deputies may change groups between votes.
   deputyGroup     String
+  /// Vote value: "Sí" (affirmative), "No" (negative), "Abstención" (abstention),
+  /// or "No vota" (did not vote).
   vote            String
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   session         VotingSession @relation(fields: [sessionId], references: [id])
 
+  /// Ensures one vote record per deputy per session.
   @@unique([sessionId, deputySeat])
 }
 
-// Speeches/Interventions (source: intervention.ts)
+/// Represents a parliamentary speech or intervention in a session.
+/// Tracks speaker identity, content, and session context. Speaker reconciliation with
+/// Person records happens post-ingestion due to name parsing challenges and entity
+/// resolution delays.
+///
+/// Data source: intervention.ts scraper (Sesiones JSON)
 model Speech {
   id            String   @id @default(cuid())
+  /// Optional reference to Person. Null until entity resolution matches speaker name
+  /// to Person records. Some speakers may never match (committee members, external guests).
   personId      String?
+  /// Session identifier. Not a foreign key to VotingSession (different scraper source).
   sessionId     String
+  /// Date of the parliamentary session.
   sessionDate   DateTime
+  /// Title or topic of the session.
   sessionTitle  String
+  /// URL to the original session record.
   sessionUrl    String
+  /// Raw speaker text as extracted from source. May include role/title prefix
+  /// (e.g., "El Presidente: ...", "La Sra. García García: ...").
+  /// Kept for audit trail and re-parsing if needed.
   speakerRaw    String
+  /// Parsed speaker name extracted from speakerRaw. Used for Person reconciliation.
   speakerName   String
+  /// Optional speaker role or title (e.g., "Presidente", "Diputado", "Secretario").
   speakerRole   String?
+  /// Full text of the speech or intervention.
   text          String
+  /// Sequential order within the session. Used with sessionId for uniqueness.
+  /// Enables reconstruction of discussion flow.
   orderInSession Int
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   person        Person?  @relation(fields: [personId], references: [id])
 
+  /// Ensures one speech record per session order. Sessions may have multiple speeches;
+  /// orderInSession tracks their sequence for historical reconstruction.
   @@unique([sessionId, orderInSession])
 }
 
-// Bureau members (source: bureau.ts)
+/// Represents a person's service in a congressional bureau or committee position.
+/// Tracks committee/bureau appointments including presidency, vice-presidency, and
+/// other roles. Maintains historical records of member service.
+///
+/// Data source: bureau.ts scraper (Organos JSON)
 model BureauMember {
   id          String    @id @default(cuid())
+  /// Optional reference to Person. Null until entity resolution matches member name
+  /// to Person records. Some members may not reconcile (deceased prior members in records).
   personId    String?
+  /// Full name of the bureau/committee member. Denormalized for historical preservation.
+  /// Member names in bureau records may differ slightly from Person records.
   name        String
+  /// Position held (e.g., "Presidente", "Vicepresidente", "Secretario", "Vocal").
   position    String
+  /// Congressional organ/committee name (e.g., "Mesa del Congreso", "Junta de Portavoces").
   organ       String
+  /// Parliamentary group (Grupo Parlamentario) at time of appointment.
   partyGroup  String
+  /// Date position started.
   startDate   DateTime
+  /// Date position ended. Null for currently serving members.
   endDate     DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   person      Person?   @relation(fields: [personId], references: [id])
 
+  /// Ensures one appointment record per name/organ/position/start combination.
+  /// Allows same person to hold multiple positions and enables re-appointment after gaps.
   @@unique([name, organ, position, startDate])
 }
 
-// Scraper metadata (for monitoring and retry tracking)
+/// Tracks scraper execution metadata for monitoring and retry management.
+/// Maintains state for job scheduling system including retry counts, error tracking,
+/// and last execution timestamps. Each scraper type has one metadata record.
+///
+/// Used by Phase 3 job scheduling (job-scheduling implementation) for:
+/// - Determining next execution time based on lastSuccessfulRun
+/// - Exponential backoff retry logic using attemptCount
+/// - Error tracking and alerting via lastError
+/// - Health monitoring and scraper diagnostics
+///
+/// Data source: Updated by scraper execution framework (job scheduler)
 model ScraperMetadata {
   id                  String   @id @default(cuid())
+  /// Unique identifier for the scraper type (e.g., "person", "voting", "intervention", "bureau").
+  /// Maps to specific scraper implementation.
   scraperType         String   @unique
+  /// Timestamp of last successful scraper execution. Used to schedule next run.
+  /// Null if scraper has never run successfully.
   lastSuccessfulRun   DateTime?
+  /// Timestamp of last attempted execution (successful or failed).
+  /// Used to detect stalled scrapers.
   lastAttemptedRun    DateTime?
+  /// Number of consecutive retry attempts. Reset to 0 on successful run.
+  /// Used for exponential backoff calculation in retry logic.
   attemptCount        Int      @default(0)
+  /// Error message from last failed execution. Null if last run succeeded.
+  /// Preserved for debugging and alerting.
   lastError           String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  /// Index on scraperType for efficient lookups during job scheduling decisions.
   @@index([scraperType])
 }
