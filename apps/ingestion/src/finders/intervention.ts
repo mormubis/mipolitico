@@ -2,87 +2,97 @@ import { getLastSuccessfulRun } from '@congress/database';
 
 import type { Finder, Needle } from '../types.ts';
 
-const MAX_PAGES = 200;
+interface BulkInterventionRow {
+  LEGISLATURA: string;
+  OBJETOINICIATIVA: string;
+  SESION: string; // DD/MM/YYYY
+  ORGANO: string;
+  FASE: string;
+  TIPOINTERVENCION: string;
+  ORADOR: string;
+  CARGOORADOR: string;
+  INICIOINTERVENCION: string;
+  FININTERVENCION: string;
+  ENLACEDIFERIDO: string;
+  ENLACEDESCARGADIRECTA: string;
+  ENLACETEXTOINTEGRO: string;
+  ENLACEPDF: string;
+}
+
 const LEGISLATURE_XV_START = new Date('2024-01-01');
 
-const finder: Finder = async ({ browser }) => {
-  const lastRun = await getLastSuccessfulRun('intervention');
+function parseSpanishDate(ddmmyyyy: string): Date {
+  const parts = ddmmyyyy.split('/');
+  const dd = parts[0] ?? '01';
+  const mm = parts[1] ?? '01';
+  const yyyy = parts[2] ?? '1970';
+  const date = new Date(`${yyyy}-${mm}-${dd}`);
 
-  const today = new Date();
+  if (isNaN(date.getTime())) {
+    console.warn(`[intervention] Could not parse date: ${ddmmyyyy}`);
+    return new Date(0); // epoch — will be filtered out by watermark
+  }
+
+  return date;
+}
+
+const finder: Finder = async ({ browser, fetch }) => {
+  const lastRun = await getLastSuccessfulRun('intervention');
   const dateFrom = lastRun ?? LEGISLATURE_XV_START;
 
-  const formatDate = (d: Date): string => {
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = String(d.getFullYear());
-    return `${dd}/${mm}/${yyyy}`;
-  };
-
   const page = await browser.newPage();
-  const needles: Needle[] = [];
 
   try {
-    const searchUrl = new URL(
-      'https://www.congreso.es/es/busqueda-de-intervenciones',
-    );
-    searchUrl.searchParams.set('p_p_id', 'intervenciones');
-    searchUrl.searchParams.set('p_p_lifecycle', '0');
-    searchUrl.searchParams.set('_intervenciones_mode', 'busqueda');
-    // TODO: Update legislature code when legislature XV ends
-    searchUrl.searchParams.set('_intervenciones_legislatura', 'XV');
-    searchUrl.searchParams.set(
-      '_intervenciones_fecha_inicio',
-      formatDate(dateFrom),
-    );
-    searchUrl.searchParams.set('_intervenciones_fecha_fin', formatDate(today));
+    await page.goto('https://www.congreso.es/es/opendata/intervenciones', {
+      waitUntil: 'networkidle',
+    });
 
-    await page.goto(searchUrl.href, { waitUntil: 'networkidle' });
+    const href = await page
+      .locator('a[href*="IntervencionesCronologicamente"][href$="json"]')
+      .first()
+      .getAttribute('href');
 
-    let hasNextPage = true;
-    let pageCount = 0;
-
-    while (hasNextPage && pageCount < MAX_PAGES) {
-      pageCount++;
-
-      const links = await page
-        .locator('a[href*="_intervenciones_id_texto"]')
-        .all();
-
-      for (const link of links) {
-        const href = await link.getAttribute('href');
-        if (href) {
-          const fullUrl = new URL(href, 'https://www.congreso.es').href;
-          needles.push({ url: fullUrl });
-        }
-      }
-
-      const nextLinkEl = page
-        .locator(
-          'a.next, a[title*="Siguiente"], a[aria-label*="Siguiente"], a[title*="siguiente"]',
-        )
-        .first();
-
-      const nextHref = await nextLinkEl.getAttribute('href').catch(() => null);
-
-      if (nextHref && nextHref.trim() !== '') {
-        await page.goto(new URL(nextHref, 'https://www.congreso.es').href, {
-          waitUntil: 'networkidle',
-        });
-      } else {
-        hasNextPage = false;
-      }
-    }
-
-    if (pageCount >= MAX_PAGES) {
-      console.warn(
-        '[intervention] Reached pagination limit; some sessions may be missed',
+    if (!href) {
+      throw new Error(
+        '[intervention] Could not find IntervencionesCronologicamente JSON link on opendata page',
       );
     }
+
+    const url = new URL(href, 'https://www.congreso.es').href;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `[intervention] Failed to fetch bulk JSON: ${response.status.toString()} ${response.statusText}`,
+      );
+    }
+
+    const rows = (await response.json()) as BulkInterventionRow[];
+
+    const seen = new Set<string>();
+    const needles: Needle[] = [];
+
+    for (const row of rows) {
+      const sessionDate = parseSpanishDate(row.SESION);
+
+      if (sessionDate <= dateFrom) continue;
+      if (!row.ENLACETEXTOINTEGRO) continue;
+      if (seen.has(row.ENLACETEXTOINTEGRO)) continue;
+
+      seen.add(row.ENLACETEXTOINTEGRO);
+      needles.push({ url: row.ENLACETEXTOINTEGRO, extra: row });
+    }
+
+    console.log(
+      `[intervention] Found ${String(needles.length)} unique session pages after ${dateFrom.toISOString().slice(0, 10)}`,
+    );
+
+    return needles;
   } finally {
     await page.close();
   }
-
-  return needles;
 };
 
+export type { BulkInterventionRow };
 export { finder };
