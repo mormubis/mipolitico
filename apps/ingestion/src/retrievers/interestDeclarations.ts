@@ -1,34 +1,100 @@
 import { Observable } from 'rxjs';
 
-import { retriever as personDetailRetriever } from './personDetail.ts';
-
-import type { Model as PersonDetailModel } from './personDetail.ts';
+import type {
+  BulkDeclarationRow,
+  InterestDeclarationsNeedleExtra,
+} from '../finders/interestDeclarations.ts';
 import type { Retriever } from '../types.ts';
 import type { InterestDeclarationInput } from '@congress/database';
 
-const retriever: Retriever<InterestDeclarationInput> = (options) => {
+function parsePeriodToDate(year: string): string {
+  return `${year.trim()}-01-01`;
+}
+
+function parsePeriod(periodo: string): {
+  startDate?: string;
+  endDate?: string;
+} {
+  const parts = periodo
+    .split('-')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0 || parts[0] === undefined) return {};
+  if (parts.length === 1) return { startDate: parsePeriodToDate(parts[0]) };
+
+  const last = parts[parts.length - 1];
+
+  return {
+    startDate: parsePeriodToDate(parts[0]),
+    endDate: last !== undefined ? parsePeriodToDate(last) : undefined,
+  };
+}
+
+function mapActivities(
+  rows: BulkDeclarationRow[],
+): NonNullable<InterestDeclarationInput['PROFESSIONAL_ACTIVITIES']> {
+  return rows
+    .filter((r) => r.TIPO === 'ACTIVIDAD')
+    .map((r) => ({
+      entity: r.EMPLEADOR,
+      position: r.DESCRIPCION,
+      remunerated: r.SECTOR !== 'PÚBLICO',
+      ...parsePeriod(r.PERIODO),
+    }));
+}
+
+const retriever: Retriever<InterestDeclarationInput> = ({
+  browser,
+  extra,
+  url,
+}) => {
   return new Observable((subscriber) => {
-    const year = new Date().getFullYear();
+    void (async () => {
+      const needleExtra = extra as InterestDeclarationsNeedleExtra;
 
-    const sub = personDetailRetriever(options).subscribe({
-      next: (record: PersonDetailModel) => {
+      if (!Array.isArray(needleExtra.declarations)) {
+        subscriber.error(
+          new Error(
+            `Invalid extra payload for interestDeclarations retriever at ${url}`,
+          ),
+        );
+        return;
+      }
+
+      const page = await browser.newPage();
+
+      try {
+        await page.goto(url);
+
+        const pdfUrl = await page
+          .getByText('Declaración de Intereses Económicos')
+          .first()
+          .getAttribute('href')
+          .catch(() => undefined);
+
+        const activities = mapActivities(needleExtra.declarations);
+
         subscriber.next({
-          DEPUTY_ID: String(record.COD_PARLAMENTARIO),
-          PDF_URL: record.DECLARACION_BIENES_URL,
-          YEAR: year,
+          DEPUTY_ID: String(needleExtra.codParlamentario),
+          PDF_URL: pdfUrl ?? undefined,
+          PROFESSIONAL_ACTIVITIES:
+            activities.length > 0 ? activities : undefined,
+          YEAR: new Date().getFullYear(),
         });
-      },
-      error: (err: unknown) => {
-        subscriber.error(err);
-      },
-      complete: () => {
-        subscriber.complete();
-      },
-    });
 
-    return () => {
-      sub.unsubscribe();
-    };
+        subscriber.complete();
+      } catch (cause) {
+        subscriber.error(
+          new Error(
+            `Unable to retrieve interest declaration from ${url}: ${(cause as Error).message}`,
+            { cause },
+          ),
+        );
+      } finally {
+        await page.close();
+      }
+    })();
   });
 };
 
