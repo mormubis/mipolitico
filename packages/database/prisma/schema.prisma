@@ -17,9 +17,12 @@ model Person {
   name          String
   /// Optional biography text from official congress profile.
   biography     String?
+  /// Timestamp of record creation.
   createdAt     DateTime @default(now())
+  /// Timestamp of last record update.
   updatedAt     DateTime @updatedAt
 
+  /// Linked entities.
   deputies      Deputy[]
   speeches      Speech[]
   organMembers OrganMember[]
@@ -41,9 +44,12 @@ model Party {
   name      String   @unique
   /// Optional abbreviated party name or acronym (e.g., "PSOE", "PP").
   shortName String?
+  /// Timestamp of record creation.
   createdAt DateTime @default(now())
+  /// Timestamp of last record update.
   updatedAt DateTime @updatedAt
 
+  /// Linked entities.
   deputies  Deputy[]
 }
 
@@ -74,9 +80,12 @@ model Deputy {
   /// Legislature number. Defaults to 15 (current legislature as of 2026-01).
   /// Used for historical data partitioning across multiple legislatures.
   legislature         Int      @default(15)
+  /// Timestamp of record creation.
   createdAt           DateTime @default(now())
+  /// Timestamp of last record update.
   updatedAt           DateTime @updatedAt
 
+  /// Linked entities.
   person              Person   @relation(fields: [personId], references: [id])
   party               Party?   @relation(fields: [partyId], references: [id])
   interestDeclarations InterestDeclaration[]
@@ -121,9 +130,12 @@ model VotingSession {
   totalNoVote       Int
   /// URL to the original JSON data source for audit trail.
   sourceUrl         String
+  /// Timestamp of record creation.
   createdAt         DateTime @default(now())
+  /// Timestamp of last record update.
   updatedAt         DateTime @updatedAt
 
+  /// Linked entities.
   votes             Vote[]
 
   /// Ensures one session per legislature/session/voting combination.
@@ -154,9 +166,12 @@ model Vote {
   /// Vote value: "Sí" (affirmative), "No" (negative), "Abstención" (abstention),
   /// or "No vota" (did not vote).
   vote            String
+  /// Timestamp of record creation.
   createdAt       DateTime      @default(now())
+  /// Timestamp of last record update.
   updatedAt       DateTime      @updatedAt
 
+  /// Linked entities.
   session         VotingSession @relation(fields: [sessionId], references: [id])
 
   /// Ensures one vote record per deputy per session.
@@ -195,9 +210,12 @@ model Speech {
   /// Sequential order within the session. Used with sessionId for uniqueness.
   /// Enables reconstruction of discussion flow.
   orderInSession Int
+  /// Timestamp of record creation.
   createdAt     DateTime @default(now())
+  /// Timestamp of last record update.
   updatedAt     DateTime @updatedAt
 
+  /// Linked entities.
   person        Person?  @relation(fields: [personId], references: [id])
 
   /// Ensures one speech record per session order. Sessions may have multiple speeches;
@@ -232,9 +250,12 @@ model OrganMember {
   startDate   DateTime
   /// Date position ended. Null for currently serving members.
   endDate     DateTime?
+  /// Timestamp of record creation.
   createdAt   DateTime  @default(now())
+  /// Timestamp of last record update.
   updatedAt   DateTime  @updatedAt
 
+  /// Linked entities.
   person      Person?   @relation(fields: [personId], references: [id])
 
   /// Ensures one appointment record per name/organ/position/start combination.
@@ -270,7 +291,9 @@ model ScraperMetadata {
   /// Error message from last failed execution. Null if last run succeeded.
   /// Preserved for debugging and alerting.
   lastError           String?
+  /// Timestamp of record creation.
   createdAt           DateTime @default(now())
+  /// Timestamp of last record update.
   updatedAt           DateTime @updatedAt
 
   /// Index on scraperType for efficient lookups during job scheduling decisions.
@@ -300,7 +323,9 @@ model Initiative {
   enactedDate    DateTime?
   /// URL to the official PDF on BOE or congreso.es.
   pdfUrl         String?
+  /// Timestamp of record creation.
   createdAt      DateTime  @default(now())
+  /// Timestamp of last record update.
   updatedAt      DateTime  @updatedAt
 
   /// Natural deduplication key. Bulletin number is the most stable identifier when
@@ -322,9 +347,12 @@ model InterestDeclaration {
   year         Int
   /// URL to the official PDF declaration. May be null if only structured data available.
   pdfUrl       String?
+  /// Timestamp of record creation.
   createdAt    DateTime @default(now())
+  /// Timestamp of last record update.
   updatedAt    DateTime @updatedAt
 
+  /// Linked entities.
   deputy                 Deputy                 @relation(fields: [deputyId], references: [id])
   realEstateAssets       RealEstateAsset[]
   movableAssets          MovableAsset[]
@@ -355,9 +383,12 @@ model RealEstateAsset {
   currentValue     Float?
   /// Outstanding mortgage balance in EUR. Null if unencumbered.
   mortgage         Float?
+  /// Timestamp of record creation.
   createdAt        DateTime            @default(now())
+  /// Timestamp of last record update.
   updatedAt        DateTime            @updatedAt
 
+  /// Linked entities.
   declaration      InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
 
@@ -373,9 +404,12 @@ model MovableAsset {
   acquisitionYear Int?
   /// Estimated value in EUR.
   value           Float?
+  /// Timestamp of record creation.
   createdAt       DateTime            @default(now())
+  /// Timestamp of last record update.
   updatedAt       DateTime            @updatedAt
 
+  /// Linked entities.
   declaration     InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
 
@@ -393,9 +427,12 @@ model Security {
   nominalValue    Float?
   /// Current market value in EUR.
   marketValue     Float?
+  /// Timestamp of record creation.
   createdAt       DateTime            @default(now())
+  /// Timestamp of last record update.
   updatedAt       DateTime            @updatedAt
 
+  /// Linked entities.
   declaration     InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
 
@@ -410,9 +447,12 @@ model BankAccount {
   accountType   String
   /// Balance range string as reported in source (e.g., "Entre 6.000 y 30.000 €").
   balanceRange  String?
+  /// Timestamp of record creation.
   createdAt     DateTime            @default(now())
+  /// Timestamp of last record update.
   updatedAt     DateTime            @updatedAt
 
+  /// Linked entities.
   declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
 
@@ -430,9 +470,12 @@ model ProfessionalActivity {
   endDate       DateTime?
   /// Whether the activity is remunerated.
   remunerated   Boolean
+  /// Timestamp of record creation.
   createdAt     DateTime            @default(now())
+  /// Timestamp of last record update.
   updatedAt     DateTime            @updatedAt
 
+  /// Linked entities.
   declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
 
@@ -447,8 +490,11 @@ model IncomeSource {
   concept       String
   /// Amount range string as reported in source (e.g., "Entre 30.001 y 60.000 €").
   amountRange   String?
+  /// Timestamp of record creation.
   createdAt     DateTime            @default(now())
+  /// Timestamp of last record update.
   updatedAt     DateTime            @updatedAt
 
+  /// Linked entities.
   declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
