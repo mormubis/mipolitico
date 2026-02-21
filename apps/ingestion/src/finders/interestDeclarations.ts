@@ -30,9 +30,9 @@ const finder: Finder = async ({ browser, fetch }) => {
   try {
     await page.goto('https://www.congreso.es/es/opendata/diputados');
 
-    const [deputiesHref, declarationsHref] = await Promise.all([
+    const [searchHref, declarationsHref] = await Promise.all([
       page
-        .locator('a[href*="DiputadosActivos"][href$="json"]')
+        .locator('a[href*="busqueda-de-diputados"][href*="statusOpendata"]')
         .first()
         .getAttribute('href'),
       page
@@ -41,9 +41,9 @@ const finder: Finder = async ({ browser, fetch }) => {
         .getAttribute('href'),
     ]);
 
-    if (!deputiesHref) {
+    if (!searchHref) {
       throw new Error(
-        '[interestDeclarations] Could not find DiputadosActivos JSON link',
+        '[interestDeclarations] Could not find búsqueda personalizada link on opendata/diputados page',
       );
     }
 
@@ -53,28 +53,36 @@ const finder: Finder = async ({ browser, fetch }) => {
       );
     }
 
-    const [deputies, declarations] = await Promise.all([
-      fetch(new URL(deputiesHref, 'https://www.congreso.es').href).then(
-        async (r) => {
-          if (!r.ok) {
-            throw new Error(
-              `[interestDeclarations] Failed to fetch DiputadosActivos JSON: ${r.status.toString()} ${r.statusText}`,
-            );
-          }
-          return r.json() as Promise<DeputyItem[]>;
-        },
+    const searchUrl = new URL(searchHref, 'https://www.congreso.es').href;
+    const declarationsUrl = new URL(declarationsHref, 'https://www.congreso.es')
+      .href;
+
+    const declarationsResponsePromise = fetch(declarationsUrl).then((r) => {
+      if (!r.ok) {
+        throw new Error(
+          `[interestDeclarations] Failed to fetch docacteco JSON: ${r.status.toString()} ${r.statusText}`,
+        );
+      }
+      return r;
+    });
+
+    const [searchResponse, declarationsResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('searchDiputados') &&
+          r.request().method() === 'POST',
+        { timeout: 15000 },
       ),
-      fetch(new URL(declarationsHref, 'https://www.congreso.es').href).then(
-        async (r) => {
-          if (!r.ok) {
-            throw new Error(
-              `[interestDeclarations] Failed to fetch docacteco JSON: ${r.status.toString()} ${r.statusText}`,
-            );
-          }
-          return r.json() as Promise<BulkDeclarationRow[]>;
-        },
-      ),
+      declarationsResponsePromise,
+      page.goto(searchUrl, { waitUntil: 'networkidle' }),
     ]);
+
+    const deputiesJson = (await searchResponse.json()) as {
+      data: DeputyItem[];
+    };
+    const deputies = deputiesJson.data;
+    const declarations =
+      (await declarationsResponse.json()) as BulkDeclarationRow[];
 
     // Build lookup: normalized name → deputy
     const deputyByName = new Map<string, DeputyItem>();
