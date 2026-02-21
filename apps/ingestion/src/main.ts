@@ -5,19 +5,23 @@ import {
 } from '@congress/database';
 import { lastValueFrom, merge, retry } from 'rxjs';
 
+import { finder as bureauFinder } from './finders/bureau.ts';
+import { finder as interventionFinder } from './finders/intervention.ts';
+import { finder as personFinder } from './finders/person.ts';
+import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
+import { retriever as bureauRetriever } from './retrievers/bureau.ts';
+import { retriever as interventionRetriever } from './retrievers/intervention.ts';
+import { retriever as personRetriever } from './retrievers/person.ts';
+import { retriever as votingRetriever } from './retrievers/voting.ts';
 import {
   persistDeputies,
   persistOrganMembers,
   persistSpeeches,
   persistVotes,
 } from './sinks/index.ts';
-import * as bureau from './sources/bureau.ts';
-import * as intervention from './sources/intervention.ts';
-import * as person from './sources/person.ts';
-import * as voting from './sources/voting.ts';
 
-import type { Finder, Needle, Retriever } from './sources/types.ts';
+import type { Finder, Needle, Retriever } from './types.ts';
 import type { Observable } from 'rxjs';
 
 // ---------------------------------------------------------------------------
@@ -61,7 +65,7 @@ async function runPersonPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
 
   try {
-    const needles = await findAll(person.finder, { browser, fetch });
+    const needles = await findAll(personFinder, { browser, fetch });
 
     if (needles.length === 0) {
       console.log('[person] No needles found, skipping');
@@ -69,7 +73,7 @@ async function runPersonPipeline(): Promise<void> {
       return;
     }
 
-    const stream = retrieveAll(person.retriever, needles, { browser, fetch });
+    const stream = retrieveAll(personRetriever, needles, { browser, fetch });
 
     await lastValueFrom(stream.pipe(persistDeputies()));
 
@@ -94,7 +98,7 @@ async function runVotingPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
 
   try {
-    const allNeedles = await findAll(voting.finder, { browser, fetch });
+    const allNeedles = await findAll(votingFinder, { browser, fetch });
 
     // Watermark: filter out sessions already in DB
     const existingKeys = await getExistingSessionKeys();
@@ -122,7 +126,7 @@ async function runVotingPipeline(): Promise<void> {
       return;
     }
 
-    const stream = retrieveAll(voting.retriever, newNeedles, {
+    const stream = retrieveAll(votingRetriever, newNeedles, {
       browser,
       fetch,
     });
@@ -148,7 +152,7 @@ async function runBureauPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
 
   try {
-    const needles = await findAll(bureau.finder, { browser, fetch });
+    const needles = await findAll(bureauFinder, { browser, fetch });
 
     if (needles.length === 0) {
       console.log('[bureau] No needles found, skipping');
@@ -156,7 +160,7 @@ async function runBureauPipeline(): Promise<void> {
       return;
     }
 
-    const stream = retrieveAll(bureau.retriever, needles, { browser, fetch });
+    const stream = retrieveAll(bureauRetriever, needles, { browser, fetch });
 
     await lastValueFrom(stream.pipe(persistOrganMembers()));
 
@@ -180,7 +184,7 @@ async function runInterventionPipeline(): Promise<void> {
 
   try {
     // Finder reads lastSuccessfulRun internally (date watermark)
-    const needles = await findAll(intervention.finder, { browser, fetch });
+    const needles = await findAll(interventionFinder, { browser, fetch });
 
     console.log(
       `[intervention] Found ${String(needles.length)} sessions to process`,
@@ -192,7 +196,7 @@ async function runInterventionPipeline(): Promise<void> {
       return;
     }
 
-    const stream = retrieveAll(intervention.retriever, needles, {
+    const stream = retrieveAll(interventionRetriever, needles, {
       browser,
       fetch,
     });

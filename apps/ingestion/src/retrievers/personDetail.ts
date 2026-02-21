@@ -1,28 +1,13 @@
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 
-import { random, romanize } from '../utils.ts';
+import { random } from '../utils.ts';
 
-import type { Finder, Retriever } from './types';
-
-interface APIDeputyItem {
-  apellidos: string;
-  apellidosNombre: string;
-  codParlamentario: number;
-  fchAlta: string;
-  fchBaja: string;
-  formacion: string;
-  genero: number;
-  grupo: string;
-  idCircunscripcion: number;
-  idLegislatura: number;
-  nombre: string;
-  nombreCircunscripcion: string;
-}
+import type { APIDeputyItem } from '../finders/personDetail.ts';
+import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
 
-// Schema for additional details not in basic profile
 const Schema = z.object({
   CIRCUNSCRIPCION: z.number(),
   COD_PARLAMENTARIO: z.number(),
@@ -44,30 +29,6 @@ const Schema = z.object({
   WEB: z.string().optional(),
 });
 
-const finder: Finder = async ({ fetch }) => {
-  const params = new URLSearchParams();
-  params.append('_diputadomodule_idLegislatura', '15');
-  params.append('_diputadomodule_filtroProvincias', '[]');
-
-  const response = await fetch(
-    'https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=searchDiputados&p_p_cacheability=cacheLevelPage',
-    {
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      },
-      body: params.toString(),
-      method: 'POST',
-    },
-  );
-
-  const { data } = (await response.json()) as { data: APIDeputyItem[] };
-
-  return data.map((item) => ({
-    url: `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false`,
-    extra: item,
-  }));
-};
-
 const retriever: Retriever<Model> = ({ browser, extra, url }) => {
   return new Observable<Model>((subscriber) => {
     void (async () => {
@@ -75,10 +36,8 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
       const page = await browser.newPage();
 
       try {
-        // Navigate to the deputy page
         await page.goto(url);
 
-        // Extract all info
         const [
           DECLARACION_ACTIVIDADES_URL,
           DECLARACION_BIENES_URL,
@@ -93,7 +52,6 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
           TWITTER,
           WEB,
         ] = await Promise.all([
-          // Actividades
           page
             .getByText('Declaración de Actividades')
             .first()
@@ -103,7 +61,6 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
                 `Failed to extract Declaración de Actividades URL: ${(error as Error).message}`,
               );
             }),
-          // Bienes
           page
             .getByText('Declaración de Bienes y Rentas')
             .first()
@@ -113,7 +70,6 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
                 `Failed to extract Declaración de Bienes y Rentas URL: ${(error as Error).message}`,
               );
             }),
-          // Intereses
           page
             .getByText('Declaración de Intereses Económicos')
             .first()
@@ -123,20 +79,17 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
                 `Failed to extract Declaración de Intereses Económicos URL: ${(error as Error).message}`,
               );
             }),
-          // Email
           page
             .locator('a[href^="mailto:"]')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => (link ?? '').replace('mailto:', '')),
-          // Facebook
           page
             .locator('a:has(img[alt="facebook"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
-          // Date of Birth
           page
             .locator('text=/Nacid[oa] el/')
             .first()
@@ -144,11 +97,9 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
             .then((textContent) => {
               const [date = undefined] =
                 /\d{2}\/\d{2}\/\d{4}/.exec(textContent ?? '') ?? [];
-
               return date;
             })
             .catch(() => undefined),
-          // Photo
           page
             .locator('img[alt="Card image cap"]')
             .first()
@@ -156,14 +107,12 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
             .catch(() => {
               throw new Error('Failed to extract Foto URL');
             }),
-          // Instagram
           page
             .locator('a:has(img[alt="instagram"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
-          // Legislatures
           page
             .locator('#_diputadomodule_legislaturasDiputado option')
             .all()
@@ -177,21 +126,18 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
               ),
             )
             .catch(() => [] as number[]),
-          // LinkedIn
           page
             .locator('a:has(img[alt="linkedin"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
-          // Twitter
           page
             .locator('a:has(img[alt="twitter"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
-          // Web
           page
             .locator('a:has(img[alt="personal-web"])')
             .first()
@@ -233,7 +179,6 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
         );
         subscriber.error(error);
       } finally {
-        // Close the page no matter what
         await page.close();
       }
     })();
@@ -241,4 +186,4 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
 };
 
 export type { Model };
-export { Schema, finder, retriever };
+export { Schema, retriever };

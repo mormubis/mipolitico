@@ -1,5 +1,5 @@
 import type { Browser } from 'playwright';
-import type { Observable } from 'rxjs';
+import type { Observable, OperatorFunction } from 'rxjs';
 
 interface CommonOptions {
   browser: Browser;
@@ -27,4 +27,6 @@ type SourceOptions = CommonOptions;
 
 type Source<T> = (options: SourceOptions) => Observable<T>;
 
-export type { Finder, Needle, Retriever, Source };
+type Processor<T, U = T> = OperatorFunction<T, U>;
+
+export type { Finder, Needle, Processor, Retriever, Source };

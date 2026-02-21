@@ -3,7 +3,7 @@ import oboe from 'oboe';
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 
-import type { Finder, Retriever } from './types';
+import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
 
@@ -17,29 +17,6 @@ const Schema = z.object({
   GRUPOPARLAMENTARIO: z.string(),
   NOMBRE: z.string(),
 });
-
-const finder: Finder = async ({ browser }) => {
-  const page = await browser.newPage();
-
-  await page.goto('https://www.congreso.es/es/opendata/diputados');
-
-  // Look for the latest deputies file in JSON format
-  const link = await page
-    .locator('a[href*=DiputadosActivos][href$=json]')
-    .getAttribute('href');
-
-  if (!link) {
-    throw new Error(
-      'Could not find link to active deputies JSON data on the congress page',
-    );
-  }
-
-  const url = new URL(link, 'https://www.congreso.es');
-
-  await page.close();
-
-  return url.href;
-};
 
 const retriever: Retriever<Model> = ({ fetch, url }) => {
   return new Observable((subscriber) => {
@@ -77,4 +54,4 @@ const retriever: Retriever<Model> = ({ fetch, url }) => {
 };
 
 export type { Model };
-export { Schema, finder, retriever };
+export { Schema, retriever };
