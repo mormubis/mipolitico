@@ -22,7 +22,7 @@ model Person {
 
   deputies      Deputy[]
   speeches      Speech[]
-  bureauMembers BureauMember[]
+  organMembers OrganMember[]
 
   /// Ensures one Person record per unique name. Deduplicates across multiple data sources.
   /// Known limitation: two deputies with identical names will collide into one record.
@@ -204,23 +204,27 @@ model Speech {
   @@unique([sessionId, orderInSession])
 }
 
-/// Represents a person's service in a congressional bureau or committee position.
-/// Tracks committee/bureau appointments including presidency, vice-presidency, and
-/// other roles. Maintains historical records of member service.
+/// Represents a person's service in any congressional organ or committee position.
+/// Covers Mesa del Congreso, parliamentary committees (Comisiones), Junta de
+/// Portavoces, Diputación Permanente, and any other organ. Previously named
+/// BureauMember — renamed to reflect that all organs are captured, not just
+/// the bureau (Mesa).
 ///
 /// Data source: bureau.ts scraper (Organos JSON)
-model BureauMember {
+model OrganMember {
   id          String    @id @default(cuid())
   /// Optional reference to Person. Null until entity resolution matches member name
   /// to Person records. Some members may not reconcile (deceased prior members in records).
   personId    String?
-  /// Full name of the bureau/committee member. Denormalized for historical preservation.
-  /// Member names in bureau records may differ slightly from Person records.
+  /// Full name of the organ member. Denormalized for historical preservation.
   name        String
   /// Position held (e.g., "Presidente", "Vicepresidente", "Secretario", "Vocal").
   position    String
   /// Congressional organ/committee name (e.g., "Mesa del Congreso", "Junta de Portavoces").
   organ       String
+  /// Discriminator for the type of organ. Derived from the organ name during ingestion.
+  /// Values: MESA | COMISION | JUNTA_PORTAVOCES | DIPUTACION_PERMANENTE | OTHER
+  organType   String    @default("OTHER")
   /// Parliamentary group (Grupo Parlamentario) at time of appointment.
   partyGroup  String
   /// Date position started.
