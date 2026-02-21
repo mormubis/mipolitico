@@ -25,6 +25,9 @@ model Person {
   bureauMembers BureauMember[]
 
   /// Ensures one Person record per unique name. Deduplicates across multiple data sources.
+  /// Known limitation: two deputies with identical names will collide into one record.
+  /// Acceptable at ~350 deputies per legislature — statistically unlikely and handled manually
+  /// if it occurs. A proper fix would use the official congress deputy ID as the natural key.
   @@unique([name])
 }
 
