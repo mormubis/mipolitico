@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { random } from '../utils.ts';
 
-import type { APIDeputyItem } from '../finders/personDetail.ts';
+import type { DeputyItem } from '../finders/personDetail.ts';
 import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
@@ -32,7 +32,7 @@ const Schema = z.object({
 const retriever: Retriever<Model> = ({ browser, extra, url }) => {
   return new Observable<Model>((subscriber) => {
     void (async () => {
-      const deputy = extra as APIDeputyItem;
+      const deputy = extra as DeputyItem;
       const page = await browser.newPage();
 
       try {

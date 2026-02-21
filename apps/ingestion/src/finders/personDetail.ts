@@ -2,7 +2,7 @@ import { romanize } from '../utils.ts';
 
 import type { Finder } from '../types.ts';
 
-interface APIDeputyItem {
+interface DeputyItem {
   apellidos: string;
   apellidosNombre: string;
   codParlamentario: number;
@@ -17,29 +17,42 @@ interface APIDeputyItem {
   nombreCircunscripcion: string;
 }
 
-const finder: Finder = async ({ fetch }) => {
-  const params = new URLSearchParams();
-  params.append('_diputadomodule_idLegislatura', '15');
-  params.append('_diputadomodule_filtroProvincias', '[]');
+const finder: Finder = async ({ browser, fetch }) => {
+  const page = await browser.newPage();
 
-  const response = await fetch(
-    'https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=2&p_p_state=normal&p_p_mode=view&p_p_resource_id=searchDiputados&p_p_cacheability=cacheLevelPage',
-    {
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      },
-      body: params.toString(),
-      method: 'POST',
-    },
-  );
+  try {
+    await page.goto('https://www.congreso.es/es/opendata/diputados');
 
-  const { data } = (await response.json()) as { data: APIDeputyItem[] };
+    const href = await page
+      .locator('a[href*="DiputadosActivos"][href$="json"]')
+      .first()
+      .getAttribute('href');
 
-  return data.map((item) => ({
-    url: `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false`,
-    extra: item,
-  }));
+    if (!href) {
+      throw new Error(
+        'Could not find DiputadosActivos JSON link on opendata/diputados page',
+      );
+    }
+
+    const url = new URL(href, 'https://www.congreso.es').href;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch DiputadosActivos JSON: ${response.status.toString()} ${response.statusText}`,
+      );
+    }
+
+    const deputies = (await response.json()) as DeputyItem[];
+
+    return deputies.map((item) => ({
+      url: `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false`,
+      extra: item,
+    }));
+  } finally {
+    await page.close();
+  }
 };
 
-export type { APIDeputyItem };
+export type { DeputyItem };
 export { finder };
