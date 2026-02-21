@@ -1,17 +1,18 @@
 import { prisma } from '../client.ts';
 
+import type { ScraperType } from '../queries/metadata.ts';
 import type { ScraperMetadata } from '@prisma/client';
 
 /**
  * Update scraper metadata after a job attempt
  * Tracks success/failure, timestamps, and error messages
  *
- * @param scraperType - Type of scraper (deputies or voting)
+ * @param scraperType - Type of scraper (deputies, voting, bureau, or intervention)
  * @param success - Whether the scraper run succeeded
  * @param error - Error message if failed
  */
 export async function updateScraperMetadata(
-  scraperType: 'deputies' | 'voting',
+  scraperType: ScraperType,
   success: boolean,
   error?: string,
 ): Promise<void> {

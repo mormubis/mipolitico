@@ -40,3 +40,5 @@ export type { InterestDeclarationFilters } from './interestDeclarations.ts';
 export * from './votes.ts';
 export * from './speeches.ts';
 export * from './organMembers.ts';
+export { getLastSuccessfulRun } from './metadata.ts';
+export type { ScraperType } from './metadata.ts';

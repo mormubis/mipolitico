@@ -1,12 +1,7 @@
 import { prisma } from '../client.ts';
-import {
-  
-  
-  
-  applyPaginationDefaults
-} from './index.ts';
+import { applyPaginationDefaults } from './index.ts';
 
-import type {PaginatedResult, PaginationInput, SortInput} from './index.ts';
+import type { PaginatedResult, PaginationInput, SortInput } from './index.ts';
 import type { Vote, VotingSession } from '@prisma/client';
 
 export interface VoteFilters {
@@ -68,4 +63,19 @@ export async function findVotingSession(
     },
     include: { votes: true },
   });
+}
+
+/**
+ * Returns a Set of "legislature-sessionNumber" strings for all voting sessions
+ * already in the database. Used by the voting pipeline to skip re-fetching
+ * already-processed sessions (watermark).
+ */
+export async function getExistingSessionKeys(): Promise<Set<string>> {
+  const sessions = await prisma.votingSession.findMany({
+    select: { legislature: true, sessionNumber: true },
+  });
+
+  return new Set(
+    sessions.map((s) => `${String(s.legislature)}-${String(s.sessionNumber)}`),
+  );
 }
