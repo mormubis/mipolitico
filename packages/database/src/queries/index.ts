@@ -32,6 +32,11 @@ export function applyPaginationDefaults(
 export * from './deputies.ts';
 export { findInitiativeById, findInitiatives } from './initiatives.ts';
 export type { InitiativeFilters } from './initiatives.ts';
+export {
+  findInterestDeclarationById,
+  findInterestDeclarations,
+} from './interestDeclarations.ts';
+export type { InterestDeclarationFilters } from './interestDeclarations.ts';
 export * from './votes.ts';
 export * from './speeches.ts';
 export * from './organMembers.ts';
