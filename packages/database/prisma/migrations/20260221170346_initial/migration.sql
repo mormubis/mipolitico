@@ -85,18 +85,19 @@ CREATE TABLE "Speech" (
 );
 
 -- CreateTable
-CREATE TABLE "BureauMember" (
+CREATE TABLE "OrganMember" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "personId" TEXT,
     "name" TEXT NOT NULL,
     "position" TEXT NOT NULL,
     "organ" TEXT NOT NULL,
+    "organType" TEXT NOT NULL DEFAULT 'OTHER',
     "partyGroup" TEXT NOT NULL,
     "startDate" DATETIME NOT NULL,
     "endDate" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "BureauMember_personId_fkey" FOREIGN KEY ("personId") REFERENCES "Person" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "OrganMember_personId_fkey" FOREIGN KEY ("personId") REFERENCES "Person" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -109,6 +110,113 @@ CREATE TABLE "ScraperMetadata" (
     "lastError" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "Initiative" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "legislature" INTEGER NOT NULL,
+    "tipo" TEXT NOT NULL,
+    "number" TEXT,
+    "title" TEXT NOT NULL,
+    "bulletinNumber" TEXT,
+    "bulletinDate" DATETIME,
+    "enactedDate" DATETIME,
+    "pdfUrl" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "InterestDeclaration" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "deputyId" TEXT NOT NULL,
+    "year" INTEGER NOT NULL,
+    "pdfUrl" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "InterestDeclaration_deputyId_fkey" FOREIGN KEY ("deputyId") REFERENCES "Deputy" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "RealEstateAsset" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "declarationId" TEXT NOT NULL,
+    "propertyType" TEXT NOT NULL,
+    "address" TEXT,
+    "surface" REAL,
+    "acquisitionYear" INTEGER,
+    "acquisitionValue" REAL,
+    "currentValue" REAL,
+    "mortgage" REAL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "RealEstateAsset_declarationId_fkey" FOREIGN KEY ("declarationId") REFERENCES "InterestDeclaration" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "MovableAsset" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "declarationId" TEXT NOT NULL,
+    "assetType" TEXT NOT NULL,
+    "description" TEXT,
+    "acquisitionYear" INTEGER,
+    "value" REAL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "MovableAsset_declarationId_fkey" FOREIGN KEY ("declarationId") REFERENCES "InterestDeclaration" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "Security" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "declarationId" TEXT NOT NULL,
+    "issuer" TEXT NOT NULL,
+    "securityType" TEXT NOT NULL,
+    "acquisitionYear" INTEGER,
+    "nominalValue" REAL,
+    "marketValue" REAL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Security_declarationId_fkey" FOREIGN KEY ("declarationId") REFERENCES "InterestDeclaration" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "BankAccount" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "declarationId" TEXT NOT NULL,
+    "institution" TEXT NOT NULL,
+    "accountType" TEXT NOT NULL,
+    "balanceRange" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "BankAccount_declarationId_fkey" FOREIGN KEY ("declarationId") REFERENCES "InterestDeclaration" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "ProfessionalActivity" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "declarationId" TEXT NOT NULL,
+    "entity" TEXT NOT NULL,
+    "position" TEXT NOT NULL,
+    "startDate" DATETIME,
+    "endDate" DATETIME,
+    "remunerated" BOOLEAN NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "ProfessionalActivity_declarationId_fkey" FOREIGN KEY ("declarationId") REFERENCES "InterestDeclaration" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "IncomeSource" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "declarationId" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "concept" TEXT NOT NULL,
+    "amountRange" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "IncomeSource_declarationId_fkey" FOREIGN KEY ("declarationId") REFERENCES "InterestDeclaration" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateIndex
@@ -130,10 +238,16 @@ CREATE UNIQUE INDEX "Vote_sessionId_deputySeat_key" ON "Vote"("sessionId", "depu
 CREATE UNIQUE INDEX "Speech_sessionId_orderInSession_key" ON "Speech"("sessionId", "orderInSession");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "BureauMember_name_organ_position_startDate_key" ON "BureauMember"("name", "organ", "position", "startDate");
+CREATE UNIQUE INDEX "OrganMember_name_organ_position_startDate_key" ON "OrganMember"("name", "organ", "position", "startDate");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ScraperMetadata_scraperType_key" ON "ScraperMetadata"("scraperType");
 
 -- CreateIndex
 CREATE INDEX "ScraperMetadata_scraperType_idx" ON "ScraperMetadata"("scraperType");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Initiative_legislature_bulletinNumber_key" ON "Initiative"("legislature", "bulletinNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "InterestDeclaration_deputyId_year_key" ON "InterestDeclaration"("deputyId", "year");
