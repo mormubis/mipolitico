@@ -29,7 +29,7 @@ export function logValidationError(
     timestamp: new Date().toISOString(),
     source,
     record,
-    errors: error.errors.map((e) => ({
+    errors: error.issues.map((e) => ({
       path: e.path.join('.'),
       message: e.message,
     })),
