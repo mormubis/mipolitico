@@ -30,6 +30,8 @@ export function applyPaginationDefaults(
 
 // Re-export query functions from entity-specific files
 export * from './deputies.ts';
+export { findInitiativeById, findInitiatives } from './initiatives.ts';
+export type { InitiativeFilters } from './initiatives.ts';
 export * from './votes.ts';
 export * from './speeches.ts';
 export * from './organMembers.ts';
