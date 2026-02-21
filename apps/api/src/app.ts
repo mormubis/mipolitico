@@ -8,6 +8,7 @@ import { config } from './config.ts';
 import { errorHandler } from './middleware/error.ts';
 import { registerDeputyRoutes } from './routes/deputies.ts';
 import { registerHealthRoutes } from './routes/health.ts';
+import { registerInitiativeRoutes } from './routes/initiatives.ts';
 import { registerOrganRoutes } from './routes/organs.ts';
 import { registerSpeechRoutes } from './routes/speeches.ts';
 import { registerVoteRoutes } from './routes/votes.ts';
@@ -65,6 +66,10 @@ export async function buildApp(): Promise<FastifyInstance> {
           name: 'speeches',
           description: 'Congressional speech/intervention endpoints',
         },
+        {
+          name: 'initiatives',
+          description: 'Legislative initiative endpoints',
+        },
         { name: 'organs', description: 'Congressional organ member endpoints' },
         { name: 'health', description: 'Health check endpoints' },
       ],
@@ -90,6 +95,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerVoteRoutes(app);
   registerSpeechRoutes(app);
   registerOrganRoutes(app);
+  registerInitiativeRoutes(app);
 
   return app;
 }

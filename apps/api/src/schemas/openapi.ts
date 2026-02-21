@@ -269,6 +269,55 @@ export const speechSchema = {
 };
 
 /**
+ * Initiative entity schema
+ */
+export const initiativeSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'Unique initiative identifier' },
+    legislature: {
+      type: 'integer',
+      description: 'Legislature number',
+      example: 15,
+    },
+    tipo: {
+      type: 'string',
+      description: 'Initiative type',
+      example: 'Proyecto de Ley',
+    },
+    number: {
+      type: 'string',
+      nullable: true,
+      description: 'Law number (null if not enacted)',
+    },
+    title: { type: 'string', description: 'Full title of the initiative' },
+    bulletinNumber: {
+      type: 'string',
+      nullable: true,
+      description: 'Official gazette bulletin number',
+    },
+    bulletinDate: {
+      type: 'string',
+      format: 'date-time',
+      nullable: true,
+      description: 'Gazette publication date',
+    },
+    enactedDate: {
+      type: 'string',
+      format: 'date-time',
+      nullable: true,
+      description: 'Date enacted into law (null if pending)',
+    },
+    pdfUrl: {
+      type: 'string',
+      format: 'uri',
+      nullable: true,
+      description: 'URL to official PDF',
+    },
+  },
+};
+
+/**
  * Organ member schema
  */
 export const organMemberSchema = {

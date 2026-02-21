@@ -106,6 +106,28 @@ export const organFilterSchema = z.object({
 });
 
 /**
+ * Initiative filter query parameters
+ */
+export const initiativeFilterSchema = z.object({
+  enacted: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (val === 'true') return true;
+      if (val === 'false') return false;
+      return undefined;
+    })
+    .pipe(z.boolean().optional()),
+  legislature: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : undefined))
+    .pipe(z.number().int().positive().optional()),
+  tipo: z.string().optional(),
+  title: z.string().optional(),
+});
+
+/**
  * Combined query schemas for each entity
  */
 export const deputyQuerySchema = deputyFilterSchema
@@ -121,5 +143,9 @@ export const speechQuerySchema = speechFilterSchema
   .merge(sortSchema);
 
 export const organQuerySchema = organFilterSchema
+  .merge(paginationSchema)
+  .merge(sortSchema);
+
+export const initiativeQuerySchema = initiativeFilterSchema
   .merge(paginationSchema)
   .merge(sortSchema);
