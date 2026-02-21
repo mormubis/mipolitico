@@ -69,6 +69,10 @@ export async function findVotingSession(
  * Returns a Set of "legislature-sessionNumber" strings for all voting sessions
  * already in the database. Used by the voting pipeline to skip re-fetching
  * already-processed sessions (watermark).
+ *
+ * Fetches the full table (no pagination) because the complete set is required
+ * for watermark filtering. At ~365 sessions/year this is acceptable; revisit
+ * if session volume grows significantly.
  */
 export async function getExistingSessionKeys(): Promise<Set<string>> {
   const sessions = await prisma.votingSession.findMany({
