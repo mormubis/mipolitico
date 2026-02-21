@@ -6,11 +6,27 @@ import type { BureauInput } from '../validation/index.ts';
 
 function parseSpanishDate(dateStr: string): Date | null {
   if (!dateStr || dateStr.trim() === '') return null;
-  const [day, month, year] = dateStr.split('/').map(Number);
+  const parts = dateStr.split('/').map(Number);
+  const [day, month, year] = parts;
+  if (day === undefined || month === undefined || year === undefined)
+    {return null;}
   return new Date(year, month - 1, day);
 }
 
-export async function upsertBureauMembers(
+function deriveOrganType(organName: string): string {
+  const name = organName.toLowerCase();
+  if (name.includes('mesa')) return 'MESA';
+  if (name.includes('comisión') || name.includes('comision')) return 'COMISION';
+  if (name.includes('junta de portavoces')) return 'JUNTA_PORTAVOCES';
+  if (
+    name.includes('diputación permanente') ||
+    name.includes('diputacion permanente')
+  )
+    {return 'DIPUTACION_PERMANENTE';}
+  return 'OTHER';
+}
+
+export async function upsertOrganMembers(
   records: unknown[],
 ): Promise<{ success: number; skipped: number }> {
   let success = 0;
@@ -22,7 +38,7 @@ export async function upsertBureauMembers(
     if (result.success) {
       validRecords.push(result.data);
     } else {
-      logValidationError('bureaus', record, result.error);
+      logValidationError('organMembers', record, result.error);
       skipped++;
     }
   }
@@ -35,12 +51,13 @@ export async function upsertBureauMembers(
         continue;
       }
 
-      // Try to link to person
       const person = await tx.person.findUnique({
         where: { name: data.Nombre },
       });
 
-      await tx.bureauMember.upsert({
+      const organType = deriveOrganType(data.NombreOrgano);
+
+      await tx.organMember.upsert({
         where: {
           name_organ_position_startDate: {
             name: data.Nombre,
@@ -54,12 +71,14 @@ export async function upsertBureauMembers(
           name: data.Nombre,
           position: data.Cargo,
           organ: data.NombreOrgano,
+          organType,
           partyGroup: data.Grupo,
           startDate,
           endDate: parseSpanishDate(data.FechaBaja),
         },
         update: {
           personId: person?.id ?? null,
+          organType,
           partyGroup: data.Grupo,
           endDate: parseSpanishDate(data.FechaBaja),
         },
