@@ -318,6 +318,129 @@ export const initiativeSchema = {
 };
 
 /**
+ * Interest declaration entity schema (with nested child assets)
+ */
+export const interestDeclarationSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'Unique declaration identifier' },
+    deputyId: { type: 'string', description: 'Deputy identifier' },
+    year: { type: 'integer', description: 'Declaration year', example: 2024 },
+    pdfUrl: {
+      type: 'string',
+      format: 'uri',
+      nullable: true,
+      description: 'URL to official PDF declaration',
+    },
+    realEstateAssets: {
+      type: 'array',
+      description: 'Real estate properties (Bienes inmuebles)',
+      items: {
+        type: 'object',
+        properties: {
+          propertyType: { type: 'string', example: 'Vivienda' },
+          address: { type: 'string', nullable: true },
+          surface: {
+            type: 'number',
+            nullable: true,
+            description: 'Square metres',
+          },
+          acquisitionYear: { type: 'integer', nullable: true },
+          acquisitionValue: {
+            type: 'number',
+            nullable: true,
+            description: 'EUR at acquisition',
+          },
+          currentValue: {
+            type: 'number',
+            nullable: true,
+            description: 'Current EUR value',
+          },
+          mortgage: {
+            type: 'number',
+            nullable: true,
+            description: 'Outstanding mortgage EUR',
+          },
+        },
+      },
+    },
+    movableAssets: {
+      type: 'array',
+      description: 'Movable assets (Bienes muebles)',
+      items: {
+        type: 'object',
+        properties: {
+          assetType: { type: 'string', example: 'Vehículo' },
+          description: { type: 'string', nullable: true },
+          acquisitionYear: { type: 'integer', nullable: true },
+          value: { type: 'number', nullable: true, description: 'EUR value' },
+        },
+      },
+    },
+    securities: {
+      type: 'array',
+      description: 'Securities (Valores mobiliarios)',
+      items: {
+        type: 'object',
+        properties: {
+          issuer: { type: 'string' },
+          securityType: { type: 'string', example: 'Acciones' },
+          acquisitionYear: { type: 'integer', nullable: true },
+          nominalValue: { type: 'number', nullable: true },
+          marketValue: { type: 'number', nullable: true },
+        },
+      },
+    },
+    bankAccounts: {
+      type: 'array',
+      description: 'Bank accounts (Cuentas bancarias)',
+      items: {
+        type: 'object',
+        properties: {
+          institution: { type: 'string' },
+          accountType: { type: 'string', example: 'Corriente' },
+          balanceRange: {
+            type: 'string',
+            nullable: true,
+            description: 'Balance range string',
+          },
+        },
+      },
+    },
+    professionalActivities: {
+      type: 'array',
+      description: 'Professional activities (Actividades)',
+      items: {
+        type: 'object',
+        properties: {
+          entity: { type: 'string' },
+          position: { type: 'string' },
+          startDate: { type: 'string', format: 'date-time', nullable: true },
+          endDate: { type: 'string', format: 'date-time', nullable: true },
+          remunerated: { type: 'boolean' },
+        },
+      },
+    },
+    incomeSources: {
+      type: 'array',
+      description: 'Income sources (Fuentes de ingresos)',
+      items: {
+        type: 'object',
+        properties: {
+          source: { type: 'string' },
+          concept: { type: 'string' },
+          amountRange: {
+            type: 'string',
+            nullable: true,
+            description: 'Amount range string',
+          },
+        },
+      },
+    },
+  },
+};
+
+/**
  * Organ member schema
  */
 export const organMemberSchema = {

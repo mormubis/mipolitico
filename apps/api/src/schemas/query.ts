@@ -149,3 +149,19 @@ export const organQuerySchema = organFilterSchema
 export const initiativeQuerySchema = initiativeFilterSchema
   .merge(paginationSchema)
   .merge(sortSchema);
+
+/**
+ * Interest declaration filter query parameters
+ */
+export const interestDeclarationFilterSchema = z.object({
+  deputyId: z.string().optional(),
+  year: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : undefined))
+    .pipe(z.number().int().positive().optional()),
+});
+
+export const interestDeclarationQuerySchema = interestDeclarationFilterSchema
+  .merge(paginationSchema)
+  .merge(sortSchema);
