@@ -32,4 +32,4 @@ export function applyPaginationDefaults(
 export * from './deputies.ts';
 export * from './votes.ts';
 export * from './speeches.ts';
-export * from './bureaus.ts';
+export * from './organMembers.ts';
