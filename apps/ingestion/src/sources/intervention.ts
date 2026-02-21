@@ -1,7 +1,8 @@
+import { getLastSuccessfulRun } from '@congress/database';
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 
-import type { Finder, Retriever } from './types';
+import type { Finder, Needle, Retriever } from './types';
 
 type Model = z.infer<typeof Schema>;
 
@@ -17,10 +18,78 @@ const Schema = z.object({
   TEXT: z.string(),
 });
 
-const finder: Finder = () => {
-  // Return specific intervention session URLs
-  // Can be extended later to auto-discover or accept config
-  return 'https://www.congreso.es/en/busqueda-de-intervenciones?p_p_id=intervenciones&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_intervenciones_mode=mostrarTextoIntegro&_intervenciones_legislatura=XV&_intervenciones_id_texto=(DSCD-15-PL-28.CODI.)';
+const finder: Finder = async ({ browser }) => {
+  const lastRun = await getLastSuccessfulRun('intervention');
+
+  const today = new Date();
+  const dateFrom = lastRun ?? new Date(0); // epoch for full sync
+
+  // Format dates as DD/MM/YYYY (congreso.es format)
+  const formatDate = (d: Date): string => {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = String(d.getFullYear());
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
+  const page = await browser.newPage();
+  const needles: Needle[] = [];
+
+  try {
+    // Navigate to the interventions search with date filter
+    const searchUrl = new URL(
+      'https://www.congreso.es/es/busqueda-de-intervenciones',
+    );
+    searchUrl.searchParams.set('p_p_id', 'intervenciones');
+    searchUrl.searchParams.set('p_p_lifecycle', '0');
+    searchUrl.searchParams.set('_intervenciones_mode', 'busqueda');
+    searchUrl.searchParams.set('_intervenciones_legislatura', 'XV');
+    searchUrl.searchParams.set(
+      '_intervenciones_fecha_inicio',
+      formatDate(dateFrom),
+    );
+    searchUrl.searchParams.set('_intervenciones_fecha_fin', formatDate(today));
+
+    await page.goto(searchUrl.href, { waitUntil: 'networkidle' });
+
+    // Collect all session links across pages
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      // Extract session links on current page
+      // Each result links to: busqueda-de-intervenciones?..._intervenciones_id_texto=(CVE)
+      const links = await page
+        .locator('a[href*="_intervenciones_id_texto"]')
+        .all();
+
+      for (const link of links) {
+        const href = await link.getAttribute('href');
+        if (href) {
+          const fullUrl = new URL(href, 'https://www.congreso.es').href;
+          needles.push({ url: fullUrl });
+        }
+      }
+
+      // Check for a "next page" pagination link
+      const nextLink = page
+        .locator('a[href*="intervenciones"][href*="paginaActual"]')
+        .last();
+
+      const nextHref = await nextLink.getAttribute('href').catch(() => null);
+
+      if (nextHref) {
+        await page.goto(new URL(nextHref, 'https://www.congreso.es').href, {
+          waitUntil: 'networkidle',
+        });
+      } else {
+        hasNextPage = false;
+      }
+    }
+  } finally {
+    await page.close();
+  }
+
+  return needles;
 };
 
 const retriever: Retriever<Model> = ({ browser, url }) => {
