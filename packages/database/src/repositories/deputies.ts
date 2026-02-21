@@ -10,7 +10,14 @@ function parseSpanishDate(dateStr: string): Date | null {
   const day = parts[0];
   const month = parts[1];
   const year = parts[2];
-  if (day === undefined || month === undefined || year === undefined)
+  if (
+    day === undefined ||
+    month === undefined ||
+    year === undefined ||
+    isNaN(day) ||
+    isNaN(month) ||
+    isNaN(year)
+  )
     {return null;}
   return new Date(year, month - 1, day);
 }
