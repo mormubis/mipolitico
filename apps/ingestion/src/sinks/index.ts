@@ -2,6 +2,6 @@ export {
   persistDeputies,
   persistVotes,
   persistSpeeches,
-  persistBureaus,
+  persistOrganMembers,
   type PersistResult,
 } from './database.ts';

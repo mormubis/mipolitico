@@ -163,7 +163,10 @@ export function persistSpeeches(): OperatorFunction<unknown, PersistResult> {
 /**
  * RxJS operator that buffers bureau member records and persists to database
  */
-export function persistBureaus(): OperatorFunction<unknown, PersistResult> {
+export function persistOrganMembers(): OperatorFunction<
+  unknown,
+  PersistResult
+> {
   let batches = 0;
   let totalSuccess = 0;
   let totalSkipped = 0;
@@ -177,13 +180,13 @@ export function persistBureaus(): OperatorFunction<unknown, PersistResult> {
         totalSuccess += result.success;
         totalSkipped += result.skipped;
         console.log(
-          `[bureaus] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
+          `[organMembers] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
         );
         return result;
       }),
       finalize(() => {
         console.log(
-          `[bureaus] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
+          `[organMembers] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
         );
       }),
       (obs) =>
