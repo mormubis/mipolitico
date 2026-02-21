@@ -12,3 +12,6 @@ node_modules/
 
 # TypeScript build
 tsconfig.tsbuildinfo
+
+# SQLite database files
+*.db
