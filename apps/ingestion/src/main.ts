@@ -5,7 +5,6 @@ import {
 } from '@congress/database';
 import { lastValueFrom, merge, retry } from 'rxjs';
 
-
 import { fetch, launch } from './network/index.ts';
 import {
   persistDeputies,
