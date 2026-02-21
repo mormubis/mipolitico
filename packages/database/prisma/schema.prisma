@@ -275,3 +275,35 @@ model ScraperMetadata {
   /// Index on scraperType for efficient lookups during job scheduling decisions.
   @@index([scraperType])
 }
+
+/// Represents an approved or in-progress legislative initiative from the Spanish Congress.
+/// Covers Proyectos de Ley, Proposiciones de Ley, Real Decreto-ley, and other initiative
+/// types published in the congreso.es Iniciativas open data dataset.
+///
+/// Data source: initiatives.ts scraper (Iniciativas JSON)
+model Initiative {
+  id             String    @id @default(cuid())
+  /// Legislature number for historical partitioning.
+  legislature    Int
+  /// Initiative type (e.g., "Proyecto de Ley", "Real Decreto-ley", "Proposición de Ley").
+  tipo           String
+  /// Law number (NUMERO_LEY). Null for non-enacted initiatives.
+  number         String?
+  /// Full title of the initiative (TITULO_LEY).
+  title          String
+  /// Official gazette bulletin number (NUMERO_BOLETIN). Used as natural deduplication key.
+  bulletinNumber String?
+  /// Date of official gazette publication (FECHA_BOLETIN).
+  bulletinDate   DateTime?
+  /// Date the initiative was enacted into law (FECHA_LEY). Null if not yet enacted.
+  enactedDate    DateTime?
+  /// URL to the official PDF on BOE or congreso.es.
+  pdfUrl         String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  /// Natural deduplication key. Bulletin number is the most stable identifier when
+  /// available. Non-enacted initiatives without a bulletin number are edge cases
+  /// and accepted as a known limitation.
+  @@unique([legislature, bulletinNumber])
+}
