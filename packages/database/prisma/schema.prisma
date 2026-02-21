@@ -79,6 +79,7 @@ model Deputy {
 
   person              Person   @relation(fields: [personId], references: [id])
   party               Party?   @relation(fields: [partyId], references: [id])
+  interestDeclarations InterestDeclaration[]
 
   /// Ensures one deputy record per person, per legislature, per term start.
   /// Allows same person to serve multiple non-consecutive terms if re-elected.
@@ -306,4 +307,148 @@ model Initiative {
   /// available. Non-enacted initiatives without a bulletin number are edge cases
   /// and accepted as a known limitation.
   @@unique([legislature, bulletinNumber])
+}
+
+/// Represents a deputy's annual financial interest declaration (Registro de Intereses).
+/// Each deputy files one declaration per year. Asset categories are normalized into
+/// separate child tables for queryability.
+///
+/// Data source: interestDeclarations.ts scraper (Registro de Intereses JSON/XML)
+model InterestDeclaration {
+  id           String   @id @default(cuid())
+  /// Reference to the Deputy who filed this declaration.
+  deputyId     String
+  /// Declaration year (e.g., 2024).
+  year         Int
+  /// URL to the official PDF declaration. May be null if only structured data available.
+  pdfUrl       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  deputy                 Deputy                 @relation(fields: [deputyId], references: [id])
+  realEstateAssets       RealEstateAsset[]
+  movableAssets          MovableAsset[]
+  securities             Security[]
+  bankAccounts           BankAccount[]
+  professionalActivities ProfessionalActivity[]
+  incomeSources          IncomeSource[]
+
+  /// One declaration per deputy per year.
+  @@unique([deputyId, year])
+}
+
+/// Real estate property declared by a deputy (Bienes inmuebles).
+model RealEstateAsset {
+  id               String              @id @default(cuid())
+  declarationId    String
+  /// Property type (e.g., "Vivienda", "Garaje", "Terreno").
+  propertyType     String
+  /// Street address. May be partially redacted in source data.
+  address          String?
+  /// Surface area in square metres.
+  surface          Float?
+  /// Year of acquisition.
+  acquisitionYear  Int?
+  /// Value at time of acquisition in EUR.
+  acquisitionValue Float?
+  /// Current cadastral or market value in EUR.
+  currentValue     Float?
+  /// Outstanding mortgage balance in EUR. Null if unencumbered.
+  mortgage         Float?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  declaration      InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
+/// Movable asset declared by a deputy (Bienes muebles — vehicles, boats, art, etc.).
+model MovableAsset {
+  id              String              @id @default(cuid())
+  declarationId   String
+  /// Asset type (e.g., "Vehículo", "Embarcación", "Obra de arte").
+  assetType       String
+  /// Description (make/model or free-text description).
+  description     String?
+  /// Year of acquisition.
+  acquisitionYear Int?
+  /// Estimated value in EUR.
+  value           Float?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  declaration     InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
+/// Securities (stocks, bonds, funds) declared by a deputy (Valores mobiliarios).
+model Security {
+  id              String              @id @default(cuid())
+  declarationId   String
+  /// Issuing entity (company, fund, or government).
+  issuer          String
+  /// Security type (e.g., "Acciones", "Fondos de inversión", "Deuda pública").
+  securityType    String
+  /// Year of acquisition.
+  acquisitionYear Int?
+  /// Nominal value in EUR.
+  nominalValue    Float?
+  /// Current market value in EUR.
+  marketValue     Float?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  declaration     InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
+/// Bank account declared by a deputy (Cuentas bancarias).
+/// Source data provides balance ranges rather than exact amounts.
+model BankAccount {
+  id            String              @id @default(cuid())
+  declarationId String
+  /// Financial institution name.
+  institution   String
+  /// Account type (e.g., "Corriente", "Ahorro", "Plazo fijo").
+  accountType   String
+  /// Balance range string as reported in source (e.g., "Entre 6.000 y 30.000 €").
+  balanceRange  String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
+/// Professional activity declared by a deputy (Actividades profesionales).
+model ProfessionalActivity {
+  id            String              @id @default(cuid())
+  declarationId String
+  /// Name of the organisation or entity where the activity takes place.
+  entity        String
+  /// Role or position held.
+  position      String
+  /// Date the activity started. Null if not specified.
+  startDate     DateTime?
+  /// Date the activity ended. Null if currently active.
+  endDate       DateTime?
+  /// Whether the activity is remunerated.
+  remunerated   Boolean
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
+/// Income source declared by a deputy (Fuentes de ingresos).
+/// Source data provides amount ranges rather than exact figures.
+model IncomeSource {
+  id            String              @id @default(cuid())
+  declarationId String
+  /// Entity or person providing the income.
+  source        String
+  /// Nature of the income (e.g., "Salario", "Dividendos", "Arrendamiento").
+  concept       String
+  /// Amount range string as reported in source (e.g., "Entre 30.001 y 60.000 €").
+  amountRange   String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
