@@ -72,3 +72,64 @@ export const InitiativeInputSchema = z.object({
   PDF: z.string().optional(),
 });
 export type InitiativeInput = z.infer<typeof InitiativeInputSchema>;
+
+// Input schemas for interestDeclarations.ts scraper output
+export const BankAccountInputSchema = z.object({
+  accountType: z.string(),
+  balanceRange: z.string().optional(),
+  institution: z.string(),
+});
+
+export const IncomeSourceInputSchema = z.object({
+  amountRange: z.string().optional(),
+  concept: z.string(),
+  source: z.string(),
+});
+
+export const MovableAssetInputSchema = z.object({
+  acquisitionYear: z.number().int().optional(),
+  assetType: z.string(),
+  description: z.string().optional(),
+  value: z.number().optional(),
+});
+
+export const ProfessionalActivityInputSchema = z.object({
+  endDate: z.string().optional(),
+  entity: z.string(),
+  position: z.string(),
+  remunerated: z.boolean(),
+  startDate: z.string().optional(),
+});
+
+export const RealEstateAssetInputSchema = z.object({
+  acquisitionValue: z.number().optional(),
+  acquisitionYear: z.number().int().optional(),
+  address: z.string().optional(),
+  currentValue: z.number().optional(),
+  mortgage: z.number().optional(),
+  propertyType: z.string(),
+  surface: z.number().optional(),
+});
+
+export const SecurityInputSchema = z.object({
+  acquisitionYear: z.number().int().optional(),
+  issuer: z.string(),
+  marketValue: z.number().optional(),
+  nominalValue: z.number().optional(),
+  securityType: z.string(),
+});
+
+export const InterestDeclarationInputSchema = z.object({
+  BANK_ACCOUNTS: z.array(BankAccountInputSchema).optional(),
+  DEPUTY_ID: z.string(),
+  INCOME_SOURCES: z.array(IncomeSourceInputSchema).optional(),
+  MOVABLE_ASSETS: z.array(MovableAssetInputSchema).optional(),
+  PDF_URL: z.string().optional(),
+  PROFESSIONAL_ACTIVITIES: z.array(ProfessionalActivityInputSchema).optional(),
+  REAL_ESTATE: z.array(RealEstateAssetInputSchema).optional(),
+  SECURITIES: z.array(SecurityInputSchema).optional(),
+  YEAR: z.number().int(),
+});
+export type InterestDeclarationInput = z.infer<
+  typeof InterestDeclarationInputSchema
+>;
