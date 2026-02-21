@@ -85,8 +85,9 @@ export function registerSpeechRoutes(app: FastifyInstance): void {
       const result = await findSpeeches(filters, pagination, sort);
 
       // Determine cache strategy based on most recent speech date
+      const firstItem = result.data[0];
       const mostRecentDate =
-        result.data.length > 0 ? result.data[0].sessionDate : undefined;
+        result.data.length > 0 && firstItem ? firstItem.sessionDate : undefined;
       const cacheStrategy = getCacheStrategy(mostRecentDate);
       setCacheHeaders(reply, cacheStrategy);
 

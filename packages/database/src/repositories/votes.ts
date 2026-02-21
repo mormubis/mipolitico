@@ -2,11 +2,14 @@ import { prisma } from '../client.ts';
 import { VotingInputSchema } from '../validation/index.ts';
 import { logValidationError } from '../validation/logger.ts';
 
-import type { VotingInput } from '../validation/index.ts';
-
-function parseVotingDate(dateStr: string): Date {
+function parseVotingDate(dateStr: string): Date | null {
   // Format: "DD/MM/YYYY" -> Date
-  const [day, month, year] = dateStr.split('/').map(Number);
+  const parts = dateStr.split('/').map(Number);
+  const day = parts[0];
+  const month = parts[1];
+  const year = parts[2];
+  if (day === undefined || month === undefined || year === undefined)
+    {return null;}
   return new Date(year, month - 1, day);
 }
 
@@ -14,7 +17,7 @@ interface VotingSessionGroup {
   legislature: number;
   sessionNumber: number;
   votingNumber: number;
-  votingDate: Date;
+  votingDate: Date | null;
   title: string;
   description: string;
   byAssent: boolean;
@@ -49,7 +52,7 @@ export async function upsertVotingRecords(
     }
 
     const data = result.data;
-    const sessionKey = `${data.LEGISLATURE}-${data.SESSION_NUMBER}-${data.VOTING_NUMBER}`;
+    const sessionKey = `${String(data.LEGISLATURE)}-${String(data.SESSION_NUMBER)}-${String(data.VOTING_NUMBER)}`;
 
     if (!sessionMap.has(sessionKey)) {
       sessionMap.set(sessionKey, {
@@ -70,12 +73,15 @@ export async function upsertVotingRecords(
       });
     }
 
-    sessionMap.get(sessionKey)!.votes.push({
-      deputySeat: data.DEPUTY_SEAT,
-      deputyName: data.DEPUTY_NAME,
-      deputyGroup: data.DEPUTY_GROUP,
-      vote: data.VOTE,
-    });
+    const sessionGroup = sessionMap.get(sessionKey);
+    if (sessionGroup) {
+      sessionGroup.votes.push({
+        deputySeat: data.DEPUTY_SEAT,
+        deputyName: data.DEPUTY_NAME,
+        deputyGroup: data.DEPUTY_GROUP,
+        vote: data.VOTE,
+      });
+    }
   }
 
   let sessionsCount = 0;
@@ -84,6 +90,11 @@ export async function upsertVotingRecords(
   // Batch UPSERT sessions and votes in transaction
   await prisma.$transaction(async (tx) => {
     for (const session of sessionMap.values()) {
+      if (!session.votingDate) {
+        skipped++;
+        continue;
+      }
+
       // Upsert voting session
       const dbSession = await tx.votingSession.upsert({
         where: {

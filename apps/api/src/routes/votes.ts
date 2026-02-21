@@ -88,8 +88,9 @@ export function registerVoteRoutes(app: FastifyInstance): void {
       const result = await findVotingSessions(filters, pagination, sort);
 
       // Determine cache strategy based on most recent vote date
+      const firstItem = result.data[0];
       const mostRecentDate =
-        result.data.length > 0 ? result.data[0].votingDate : undefined;
+        result.data.length > 0 && firstItem ? firstItem.votingDate : undefined;
       const cacheStrategy = getCacheStrategy(mostRecentDate);
       setCacheHeaders(reply, cacheStrategy);
 

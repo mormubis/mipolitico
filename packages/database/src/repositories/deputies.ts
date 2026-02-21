@@ -4,9 +4,14 @@ import { logValidationError } from '../validation/logger.ts';
 
 import type { PersonInput } from '../validation/index.ts';
 
-function parseSpanishDate(dateStr: string): Date {
+function parseSpanishDate(dateStr: string): Date | null {
   // Format: "DD/MM/YYYY" -> Date
-  const [day, month, year] = dateStr.split('/').map(Number);
+  const parts = dateStr.split('/').map(Number);
+  const day = parts[0];
+  const month = parts[1];
+  const year = parts[2];
+  if (day === undefined || month === undefined || year === undefined)
+    {return null;}
   return new Date(year, month - 1, day);
 }
 
@@ -42,6 +47,10 @@ export async function upsertDeputies(
 
       // Upsert deputy record
       const startDate = parseSpanishDate(data.FECHAALTA);
+      if (!startDate) {
+        skipped++;
+        continue;
+      }
       await tx.deputy.upsert({
         where: {
           personId_legislature_startDate: {

@@ -90,8 +90,9 @@ export function registerOrganRoutes(app: FastifyInstance): void {
       const result = await findOrganMembers(filters, pagination, sort);
 
       // Determine cache strategy based on most recent start date
+      const firstItem = result.data[0];
       const mostRecentDate =
-        result.data.length > 0 ? result.data[0].startDate : undefined;
+        result.data.length > 0 && firstItem ? firstItem.startDate : undefined;
       const cacheStrategy = getCacheStrategy(mostRecentDate);
       setCacheHeaders(reply, cacheStrategy);
 

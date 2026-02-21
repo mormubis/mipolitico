@@ -4,8 +4,13 @@ import { logValidationError } from '../validation/logger.ts';
 
 import type { SpeechInput } from '../validation/index.ts';
 
-function parseSpanishDate(dateStr: string): Date {
-  const [day, month, year] = dateStr.split('/').map(Number);
+function parseSpanishDate(dateStr: string): Date | null {
+  const parts = dateStr.split('/').map(Number);
+  const day = parts[0];
+  const month = parts[1];
+  const year = parts[2];
+  if (day === undefined || month === undefined || year === undefined)
+    {return null;}
   return new Date(year, month - 1, day);
 }
 
@@ -28,6 +33,12 @@ export async function upsertSpeeches(
 
   await prisma.$transaction(async (tx) => {
     for (const data of validRecords) {
+      const sessionDate = parseSpanishDate(data.SESSION_DATE);
+      if (!sessionDate) {
+        skipped++;
+        continue;
+      }
+
       // Try to link to person by name
       const person = await tx.person.findFirst({
         where: {
@@ -47,7 +58,7 @@ export async function upsertSpeeches(
         create: {
           personId: person?.id ?? null,
           sessionId: data.SESSION_ID,
-          sessionDate: parseSpanishDate(data.SESSION_DATE),
+          sessionDate,
           sessionTitle: data.SESSION_TITLE,
           sessionUrl: data.SESSION_URL,
           speakerRaw: data.SPEAKER,
@@ -58,7 +69,7 @@ export async function upsertSpeeches(
         },
         update: {
           personId: person?.id ?? null,
-          sessionDate: parseSpanishDate(data.SESSION_DATE),
+          sessionDate,
           sessionTitle: data.SESSION_TITLE,
           speakerRaw: data.SPEAKER,
           speakerName: data.SPEAKER_NAME,
