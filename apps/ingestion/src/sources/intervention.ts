@@ -18,11 +18,16 @@ const Schema = z.object({
   TEXT: z.string(),
 });
 
+const MAX_PAGES = 200; // safety cap — at ~10 sessions/page this covers 2000 sessions
+
+// Legislature XV started January 2024
+const LEGISLATURE_XV_START = new Date('2024-01-01');
+
 const finder: Finder = async ({ browser }) => {
   const lastRun = await getLastSuccessfulRun('intervention');
 
   const today = new Date();
-  const dateFrom = lastRun ?? new Date(0); // epoch for full sync
+  const dateFrom = lastRun ?? LEGISLATURE_XV_START;
 
   // Format dates as DD/MM/YYYY (congreso.es format)
   const formatDate = (d: Date): string => {
@@ -43,6 +48,7 @@ const finder: Finder = async ({ browser }) => {
     searchUrl.searchParams.set('p_p_id', 'intervenciones');
     searchUrl.searchParams.set('p_p_lifecycle', '0');
     searchUrl.searchParams.set('_intervenciones_mode', 'busqueda');
+    // TODO: Update legislature code when legislature XV ends
     searchUrl.searchParams.set('_intervenciones_legislatura', 'XV');
     searchUrl.searchParams.set(
       '_intervenciones_fecha_inicio',
@@ -54,8 +60,11 @@ const finder: Finder = async ({ browser }) => {
 
     // Collect all session links across pages
     let hasNextPage = true;
+    let pageCount = 0;
 
-    while (hasNextPage) {
+    while (hasNextPage && pageCount < MAX_PAGES) {
+      pageCount++;
+
       // Extract session links on current page
       // Each result links to: busqueda-de-intervenciones?..._intervenciones_id_texto=(CVE)
       const links = await page
@@ -70,20 +79,28 @@ const finder: Finder = async ({ browser }) => {
         }
       }
 
-      // Check for a "next page" pagination link
-      const nextLink = page
-        .locator('a[href*="intervenciones"][href*="paginaActual"]')
-        .last();
+      // Look for a "next page" link — Liferay pagination typically uses text "Siguiente" or ">"
+      const nextLinkEl = page
+        .locator(
+          'a.next, a[title*="Siguiente"], a[aria-label*="Siguiente"], a[title*="siguiente"]',
+        )
+        .first();
 
-      const nextHref = await nextLink.getAttribute('href').catch(() => null);
+      const nextHref = await nextLinkEl.getAttribute('href').catch(() => null);
 
-      if (nextHref) {
+      if (nextHref && nextHref.trim() !== '') {
         await page.goto(new URL(nextHref, 'https://www.congreso.es').href, {
           waitUntil: 'networkidle',
         });
       } else {
         hasNextPage = false;
       }
+    }
+
+    if (pageCount >= MAX_PAGES) {
+      console.warn(
+        '[intervention] Reached pagination limit; some sessions may be missed',
+      );
     }
   } finally {
     await page.close();

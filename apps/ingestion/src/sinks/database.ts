@@ -161,7 +161,7 @@ export function persistSpeeches(): OperatorFunction<unknown, PersistResult> {
 }
 
 /**
- * RxJS operator that buffers bureau member records and persists to database
+ * RxJS operator that buffers organ member records and persists to database
  */
 export function persistOrganMembers(): OperatorFunction<
   unknown,
