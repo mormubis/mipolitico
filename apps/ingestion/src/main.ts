@@ -6,16 +6,19 @@ import {
 import { lastValueFrom, merge, retry } from 'rxjs';
 
 import { finder as bureauFinder } from './finders/bureau.ts';
+import { finder as initiativesFinder } from './finders/initiatives.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
 import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
+import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
 import { retriever as interventionRetriever } from './retrievers/intervention.ts';
 import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';
 import {
   persistDeputies,
+  persistInitiatives,
   persistOrganMembers,
   persistSpeeches,
   persistVotes,
@@ -217,6 +220,42 @@ async function runInterventionPipeline(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Initiatives pipeline
+// ---------------------------------------------------------------------------
+
+async function runInitiativesPipeline(): Promise<void> {
+  const browser = await launch({ headless: true });
+
+  try {
+    const needles = await findAll(initiativesFinder, { browser, fetch });
+
+    if (needles.length === 0) {
+      console.log('[initiatives] No needles found, skipping');
+      await updateScraperMetadata('initiatives', true);
+      return;
+    }
+
+    const stream = retrieveAll(initiativesRetriever, needles, {
+      browser,
+      fetch,
+    });
+
+    await lastValueFrom(stream.pipe(persistInitiatives()));
+
+    await updateScraperMetadata('initiatives', true);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    await updateScraperMetadata('initiatives', false, message).catch(
+      console.error,
+    );
+    throw error;
+  } finally {
+    await browser.close();
+    await prisma.$disconnect();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
@@ -226,6 +265,7 @@ const sourceArg = process.argv
 
 const pipelines: Record<string, () => Promise<void>> = {
   bureau: runBureauPipeline,
+  initiatives: runInitiativesPipeline,
   intervention: runInterventionPipeline,
   person: runPersonPipeline,
   voting: runVotingPipeline,
@@ -261,6 +301,7 @@ void main().catch((error: unknown) => {
 
 export {
   runBureauPipeline,
+  runInitiativesPipeline,
   runInterventionPipeline,
   runPersonPipeline,
   runVotingPipeline,

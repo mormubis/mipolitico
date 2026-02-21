@@ -1,6 +1,11 @@
 import { prisma } from '../client.ts';
 
-export type ScraperType = 'deputies' | 'voting' | 'bureau' | 'intervention';
+export type ScraperType =
+  | 'bureau'
+  | 'deputies'
+  | 'initiatives'
+  | 'intervention'
+  | 'voting';
 
 export async function getLastSuccessfulRun(
   scraperType: ScraperType,

@@ -1,5 +1,6 @@
 import {
   upsertDeputies,
+  upsertInitiatives,
   upsertOrganMembers,
   upsertSpeeches,
   upsertVotingRecords,
@@ -146,6 +147,52 @@ export function persistSpeeches(): OperatorFunction<unknown, PersistResult> {
             complete: () => {
               subscriber.next({
                 source: 'speeches',
+                batches,
+                totalSuccess,
+                totalSkipped,
+              });
+              subscriber.complete();
+            },
+            error: (err: Error) => {
+              subscriber.error(err);
+            },
+          });
+        }),
+    );
+}
+
+/**
+ * RxJS operator that buffers initiative records and persists to database
+ */
+export function persistInitiatives(): OperatorFunction<unknown, PersistResult> {
+  let batches = 0;
+  let totalSuccess = 0;
+  let totalSkipped = 0;
+
+  return (source: Observable<unknown>) =>
+    source.pipe(
+      bufferCount(BATCH_SIZE),
+      mergeMap(async (batch) => {
+        const result = await upsertInitiatives(batch);
+        batches++;
+        totalSuccess += result.success;
+        totalSkipped += result.skipped;
+        console.log(
+          `[initiatives] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
+        );
+        return result;
+      }),
+      finalize(() => {
+        console.log(
+          `[initiatives] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
+        );
+      }),
+      (obs) =>
+        new Observable<PersistResult>((subscriber) => {
+          obs.subscribe({
+            complete: () => {
+              subscriber.next({
+                source: 'initiatives',
                 batches,
                 totalSuccess,
                 totalSkipped,

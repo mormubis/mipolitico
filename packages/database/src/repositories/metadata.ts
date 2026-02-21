@@ -7,7 +7,7 @@ import type { ScraperMetadata } from '@prisma/client';
  * Update scraper metadata after a job attempt
  * Tracks success/failure, timestamps, and error messages
  *
- * @param scraperType - Type of scraper (deputies, voting, bureau, or intervention)
+ * @param scraperType - Type of scraper (bureau, deputies, initiatives, intervention, or voting)
  * @param success - Whether the scraper run succeeded
  * @param error - Error message if failed
  */
