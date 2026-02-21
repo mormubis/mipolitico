@@ -24,7 +24,7 @@
     "format:ci": "prettier --ignore-unknown --list-different \"**/*\"",
     "lint": "pnpm run lint:style && pnpm run lint:types",
     "lint:ci": "pnpm run lint:style --max-warnings 0 && pnpm run lint:types",
-    "lint:style": "eslint \"app/**/*.{ts,tsx}\" --fix",
+    "lint:style": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "lint:types": "tsc --noEmit --project tsconfig.json",
     "scrape": "tsx src/main.ts",
     "scrape:person": "tsx src/main.ts --source=person",
