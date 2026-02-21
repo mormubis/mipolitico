@@ -1,11 +1,14 @@
-# Node
-node_modules/
+# Env
+.env.*
 
 # NX
 .nx/
 
-# TypeScript build
-tsconfig.tsbuildinfo
-
 # Playwright
 .playwright-mcp/
+
+# Node
+node_modules/
+
+# TypeScript build
+tsconfig.tsbuildinfo
