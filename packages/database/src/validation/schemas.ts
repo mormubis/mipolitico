@@ -59,3 +59,16 @@ export const BureauInputSchema = z.object({
   NombreOrgano: z.string(),
 });
 export type BureauInput = z.infer<typeof BureauInputSchema>;
+
+// Input schema for initiatives.ts scraper output
+export const InitiativeInputSchema = z.object({
+  LEGISLATURE: z.number().int(),
+  TIPO: z.string(),
+  NUMERO_LEY: z.string().optional(),
+  TITULO_LEY: z.string(),
+  NUMERO_BOLETIN: z.string().optional(),
+  FECHA_BOLETIN: z.string().optional(),
+  FECHA_LEY: z.string().optional(),
+  PDF: z.string().optional(),
+});
+export type InitiativeInput = z.infer<typeof InitiativeInputSchema>;
