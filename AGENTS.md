@@ -5,6 +5,9 @@
 Monorepo for **MiPolítico** — a Spanish Congress open data platform. Uses **pnpm
 workspaces** and **Nx** for task orchestration.
 
+For Spanish Congress political terminology (Electoral Formation, Parliamentary
+Group, Party) see [GLOSSARY.md](./GLOSSARY.md).
+
 ```
 apps/
   api/         @congress/api      — Fastify REST API
