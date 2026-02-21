@@ -23,18 +23,20 @@ async function runTest() {
 
   const deputyResult = await upsertDeputies(deputyData);
   console.log(
-    `   Deputies: ${deputyResult.success} success, ${deputyResult.skipped} skipped`,
+    `   Deputies: ${String(deputyResult.success)} success, ${String(deputyResult.skipped)} skipped`,
   );
 
   // Run again to test UPSERT (should not create duplicate)
   const deputyResult2 = await upsertDeputies(deputyData);
   console.log(
-    `   Re-run: ${deputyResult2.success} success (should update, not duplicate)`,
+    `   Re-run: ${String(deputyResult2.success)} success (should update, not duplicate)`,
   );
 
   // Verify no duplicate
   const deputyCount = await prisma.deputy.count();
-  console.log(`   Total deputies in DB: ${deputyCount} (should be 1)\n`);
+  console.log(
+    `   Total deputies in DB: ${String(deputyCount)} (should be 1)\n`,
+  );
 
   // Test 2: Upsert voting records
   console.log('2. Testing voting UPSERT...');
@@ -62,13 +64,13 @@ async function runTest() {
 
   const voteResult = await upsertVotingRecords(votingData);
   console.log(
-    `   Sessions: ${voteResult.sessions}, Votes: ${voteResult.votes}, Skipped: ${voteResult.skipped}`,
+    `   Sessions: ${String(voteResult.sessions)}, Votes: ${String(voteResult.votes)}, Skipped: ${String(voteResult.skipped)}`,
   );
 
   // Run again to test UPSERT
   const voteResult2 = await upsertVotingRecords(votingData);
   console.log(
-    `   Re-run: Sessions ${voteResult2.sessions}, Votes ${voteResult2.votes} (should update)\n`,
+    `   Re-run: Sessions ${String(voteResult2.sessions)}, Votes ${String(voteResult2.votes)} (should update)\n`,
   );
 
   // Test 3: Invalid data
@@ -76,7 +78,7 @@ async function runTest() {
   const invalidData = [{ INVALID: 'data' }];
   const invalidResult = await upsertDeputies(invalidData);
   console.log(
-    `   Invalid records skipped: ${invalidResult.skipped} (should be 1)`,
+    `   Invalid records skipped: ${String(invalidResult.skipped)} (should be 1)`,
   );
   console.log(`   Validation log: ${getLogPath()}\n`);
 

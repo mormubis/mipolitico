@@ -14,10 +14,16 @@
   "main": "src/index.ts",
   "name": "@congress/database",
   "scripts": {
-    "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "format": "pnpm run format:ci --write",
+    "format:ci": "prettier --ignore-unknown --list-different \"**/*\"",
+    "lint": "pnpm run lint:style && pnpm run lint:types",
+    "lint:ci": "pnpm run lint:style --max-warnings 0 && pnpm run lint:types",
+    "lint:style": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "lint:types": "tsc --noEmit --project tsconfig.json",
     "test:integration": "node src/test/integration.test.ts"
   },
   "type": "module",
