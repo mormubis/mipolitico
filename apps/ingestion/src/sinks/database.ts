@@ -1,6 +1,7 @@
 import {
   upsertDeputies,
   upsertInitiatives,
+  upsertInterestDeclaration,
   upsertOrganMembers,
   upsertSpeeches,
   upsertVotingRecords,
@@ -194,6 +195,54 @@ export function persistInitiatives(): OperatorFunction<unknown, PersistResult> {
               subscriber.next({
                 source: 'initiatives',
                 batches,
+                totalSuccess,
+                totalSkipped,
+              });
+              subscriber.complete();
+            },
+            error: (err: Error) => {
+              subscriber.error(err);
+            },
+          });
+        }),
+    );
+}
+
+/**
+ * RxJS operator that persists interest declaration records to database.
+ * Each record is upserted individually (no batching) because the repository
+ * runs a transaction per declaration.
+ */
+export function persistInterestDeclarations(): OperatorFunction<
+  unknown,
+  PersistResult
+> {
+  let totalSuccess = 0;
+  let totalSkipped = 0;
+
+  return (source: Observable<unknown>) =>
+    source.pipe(
+      mergeMap(async (record) => {
+        const success = await upsertInterestDeclaration(record);
+        if (success) {
+          totalSuccess++;
+        } else {
+          totalSkipped++;
+        }
+        return success;
+      }),
+      finalize(() => {
+        console.log(
+          `[interestDeclarations] Complete: ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
+        );
+      }),
+      (obs) =>
+        new Observable<PersistResult>((subscriber) => {
+          obs.subscribe({
+            complete: () => {
+              subscriber.next({
+                source: 'interestDeclarations',
+                batches: totalSuccess + totalSkipped,
                 totalSuccess,
                 totalSkipped,
               });

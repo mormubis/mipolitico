@@ -4,6 +4,7 @@ export type ScraperType =
   | 'bureau'
   | 'deputies'
   | 'initiatives'
+  | 'interestDeclarations'
   | 'intervention'
   | 'voting';
 

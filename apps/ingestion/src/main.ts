@@ -9,16 +9,20 @@ import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
 import { finder as personFinder } from './finders/person.ts';
+import { finder as personDetailFinder } from './finders/personDetail.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
+import { processor as interestDeclarationsProcessor } from './processors/interestDeclarations.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
+import { retriever as interestDeclarationsRetriever } from './retrievers/interestDeclarations.ts';
 import { retriever as interventionRetriever } from './retrievers/intervention.ts';
 import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';
 import {
   persistDeputies,
   persistInitiatives,
+  persistInterestDeclarations,
   persistOrganMembers,
   persistSpeeches,
   persistVotes,
@@ -256,6 +260,48 @@ async function runInitiativesPipeline(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Interest declarations pipeline
+// ---------------------------------------------------------------------------
+
+async function runInterestDeclarationsPipeline(): Promise<void> {
+  const browser = await launch({ headless: true });
+
+  try {
+    const needles = await findAll(personDetailFinder, { browser, fetch });
+
+    if (needles.length === 0) {
+      console.log('[interestDeclarations] No deputies found, skipping');
+      await updateScraperMetadata('interestDeclarations', true);
+      return;
+    }
+
+    console.log(
+      `[interestDeclarations] Processing ${String(needles.length)} deputies`,
+    );
+
+    const stream = retrieveAll(interestDeclarationsRetriever, needles, {
+      browser,
+      fetch,
+    });
+
+    await lastValueFrom(
+      stream.pipe(interestDeclarationsProcessor, persistInterestDeclarations()),
+    );
+
+    await updateScraperMetadata('interestDeclarations', true);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    await updateScraperMetadata('interestDeclarations', false, message).catch(
+      console.error,
+    );
+    throw error;
+  } finally {
+    await browser.close();
+    await prisma.$disconnect();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
@@ -266,6 +312,7 @@ const sourceArg = process.argv
 const pipelines: Record<string, () => Promise<void>> = {
   bureau: runBureauPipeline,
   initiatives: runInitiativesPipeline,
+  interestDeclarations: runInterestDeclarationsPipeline,
   intervention: runInterventionPipeline,
   person: runPersonPipeline,
   voting: runVotingPipeline,
@@ -302,6 +349,7 @@ void main().catch((error: unknown) => {
 export {
   runBureauPipeline,
   runInitiativesPipeline,
+  runInterestDeclarationsPipeline,
   runInterventionPipeline,
   runPersonPipeline,
   runVotingPipeline,

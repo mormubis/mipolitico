@@ -23,10 +23,6 @@ type RetrieverOptions = CommonOptions & Needle;
 
 type Retriever<T> = (options: RetrieverOptions) => Observable<T>;
 
-type SourceOptions = CommonOptions;
-
-type Source<T> = (options: SourceOptions) => Observable<T>;
-
 type Processor<T, U = T> = OperatorFunction<T, U>;
 
-export type { Finder, Needle, Processor, Retriever, Source };
+export type { Finder, Needle, Processor, Retriever };
