@@ -7,9 +7,9 @@ import { lastValueFrom, merge, retry } from 'rxjs';
 
 import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
+import { finder as interestDeclarationsFinder } from './finders/interestDeclarations.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
 import { finder as personFinder } from './finders/person.ts';
-import { finder as personDetailFinder } from './finders/personDetail.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
 import { processor as interestDeclarationsProcessor } from './processors/interestDeclarations.ts';
@@ -267,7 +267,10 @@ async function runInterestDeclarationsPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
 
   try {
-    const needles = await findAll(personDetailFinder, { browser, fetch });
+    const needles = await findAll(interestDeclarationsFinder, {
+      browser,
+      fetch,
+    });
 
     if (needles.length === 0) {
       console.log('[interestDeclarations] No deputies found, skipping');
