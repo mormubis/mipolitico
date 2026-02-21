@@ -269,12 +269,12 @@ export const speechSchema = {
 };
 
 /**
- * Bureau member schema
+ * Organ member schema
  */
-export const bureauMemberSchema = {
+export const organMemberSchema = {
   type: 'object',
   properties: {
-    id: { type: 'string', description: 'Unique bureau member identifier' },
+    id: { type: 'string', description: 'Unique organ member identifier' },
     personId: {
       type: 'string',
       nullable: true,
@@ -295,6 +295,17 @@ export const bureauMemberSchema = {
       description: 'Congressional organ',
       example: 'Mesa del Congreso',
     },
+    organType: {
+      type: 'string',
+      enum: [
+        'MESA',
+        'COMISION',
+        'JUNTA_PORTAVOCES',
+        'DIPUTACION_PERMANENTE',
+        'OTHER',
+      ],
+      description: 'Type of congressional organ',
+    },
     partyGroup: {
       type: 'string',
       description: 'Party/parliamentary group',
@@ -309,7 +320,7 @@ export const bureauMemberSchema = {
       type: 'string',
       format: 'date-time',
       nullable: true,
-      description: 'End date of position (null if current)',
+      description: 'End date (null if current)',
     },
   },
 };

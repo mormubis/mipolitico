@@ -88,10 +88,19 @@ export const speechFilterSchema = z.object({
 });
 
 /**
- * Bureau filter query parameters
+ * Organ filter query parameters
  */
-export const bureauFilterSchema = z.object({
+export const organFilterSchema = z.object({
   organ: z.string().optional(),
+  organType: z
+    .enum([
+      'MESA',
+      'COMISION',
+      'JUNTA_PORTAVOCES',
+      'DIPUTACION_PERMANENTE',
+      'OTHER',
+    ])
+    .optional(),
   position: z.string().optional(),
   name: z.string().optional(),
 });
@@ -111,6 +120,6 @@ export const speechQuerySchema = speechFilterSchema
   .merge(paginationSchema)
   .merge(sortSchema);
 
-export const bureauQuerySchema = bureauFilterSchema
+export const organQuerySchema = organFilterSchema
   .merge(paginationSchema)
   .merge(sortSchema);

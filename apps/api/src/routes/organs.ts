@@ -1,29 +1,29 @@
-import { findBureauMemberById, findBureauMembers } from '@congress/database';
+import { findOrganMemberById, findOrganMembers } from '@congress/database';
 
 import { getCacheStrategy, setCacheHeaders } from '../middleware/cache.ts';
 import { setPaginationHeaders } from '../middleware/pagination.ts';
 import {
-  bureauMemberSchema,
   errorSchema,
+  organMemberSchema,
   paginationQuerySchema,
 } from '../schemas/openapi.ts';
-import { bureauQuerySchema } from '../schemas/query.ts';
+import { organQuerySchema } from '../schemas/query.ts';
 
 import type { FastifyInstance } from 'fastify';
 
 /**
- * Register bureau routes
+ * Register organ routes
  */
-export function registerBureauRoutes(app: FastifyInstance): void {
-  // GET /api/v1/bureaus - List bureau members with filtering, pagination, sorting
+export function registerOrganRoutes(app: FastifyInstance): void {
+  // GET /api/v1/organs - List organ members with filtering, pagination, sorting
   app.get(
-    '/api/v1/bureaus',
+    '/api/v1/organs',
     {
       schema: {
-        tags: ['bureaus'],
-        summary: 'List bureau members',
+        tags: ['organs'],
+        summary: 'List organ members',
         description:
-          'Returns congressional bureau/leadership members with optional filtering by organ, position, or name.',
+          'Returns congressional organ members with optional filtering by organ, organType, position, or name.',
         querystring: {
           type: 'object',
           properties: {
@@ -31,6 +31,17 @@ export function registerBureauRoutes(app: FastifyInstance): void {
             organ: {
               type: 'string',
               description: 'Filter by organ (e.g., Mesa del Congreso)',
+            },
+            organType: {
+              type: 'string',
+              enum: [
+                'MESA',
+                'COMISION',
+                'JUNTA_PORTAVOCES',
+                'DIPUTACION_PERMANENTE',
+                'OTHER',
+              ],
+              description: 'Filter by organ type',
             },
             position: { type: 'string', description: 'Filter by position' },
             name: {
@@ -42,9 +53,9 @@ export function registerBureauRoutes(app: FastifyInstance): void {
         response: {
           200: {
             type: 'array',
-            items: bureauMemberSchema,
+            items: organMemberSchema,
             description:
-              'List of bureau members. Check X-Total-Count, X-Page, and X-Per-Page headers for pagination info.',
+              'List of organ members. Check X-Total-Count, X-Page, and X-Per-Page headers for pagination info.',
           },
           400: errorSchema,
         },
@@ -52,11 +63,12 @@ export function registerBureauRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       // Parse and validate query parameters
-      const query = bureauQuerySchema.parse(request.query);
+      const query = organQuerySchema.parse(request.query);
 
       // Extract filters, pagination, and sorting
       const filters = {
         organ: query.organ,
+        organType: query.organType,
         position: query.position,
         name: query.name,
       };
@@ -75,7 +87,7 @@ export function registerBureauRoutes(app: FastifyInstance): void {
       };
 
       // Execute query
-      const result = await findBureauMembers(filters, pagination, sort);
+      const result = await findOrganMembers(filters, pagination, sort);
 
       // Determine cache strategy based on most recent start date
       const mostRecentDate =
@@ -97,23 +109,23 @@ export function registerBureauRoutes(app: FastifyInstance): void {
     },
   );
 
-  // GET /api/v1/bureaus/:id - Get single bureau member
+  // GET /api/v1/organs/:id - Get single organ member
   app.get(
-    '/api/v1/bureaus/:id',
+    '/api/v1/organs/:id',
     {
       schema: {
-        tags: ['bureaus'],
-        summary: 'Get bureau member by ID',
-        description: 'Returns a single bureau member with position details.',
+        tags: ['organs'],
+        summary: 'Get organ member by ID',
+        description: 'Returns a single organ member with position details.',
         params: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: 'Bureau member ID' },
+            id: { type: 'string', description: 'Organ member ID' },
           },
           required: ['id'],
         },
         response: {
-          200: bureauMemberSchema,
+          200: organMemberSchema,
           404: errorSchema,
         },
       },
@@ -122,19 +134,19 @@ export function registerBureauRoutes(app: FastifyInstance): void {
       const { id } = request.params as { id: string };
 
       // Execute query
-      const bureauMember = await findBureauMemberById(id);
+      const organMember = await findOrganMemberById(id);
 
       // Handle not found
-      if (!bureauMember) {
+      if (!organMember) {
         reply.status(404).send({
-          error: 'Bureau member not found',
+          error: 'Organ member not found',
           status: 404,
         });
         return;
       }
 
       // Determine cache strategy based on start date
-      const cacheStrategy = getCacheStrategy(bureauMember.startDate);
+      const cacheStrategy = getCacheStrategy(organMember.startDate);
       setCacheHeaders(reply, cacheStrategy);
 
       // Set request ID header if provided
@@ -144,12 +156,12 @@ export function registerBureauRoutes(app: FastifyInstance): void {
       }
 
       // Return data directly
-      return bureauMember;
+      return organMember;
     },
   );
 
-  // GET /api/v1/schema/bureaus - Schema endpoint
-  app.get('/api/v1/schema/bureaus', async (request, reply) => {
+  // GET /api/v1/schema/organs - Schema endpoint
+  app.get('/api/v1/schema/organs', async (request, reply) => {
     // Set cache headers (schema is static - use historical strategy)
     setCacheHeaders(reply, 'historical');
 
@@ -165,16 +177,17 @@ export function registerBureauRoutes(app: FastifyInstance): void {
         {
           name: 'id',
           type: 'string',
-          description: 'Unique bureau member identifier',
+          description: 'Unique organ member identifier',
         },
         { name: 'organ', type: 'string', description: 'Organ name' },
+        { name: 'organType', type: 'string', description: 'Organ type' },
         { name: 'position', type: 'string', description: 'Position title' },
         { name: 'name', type: 'string', description: 'Member name' },
         { name: 'startDate', type: 'date', description: 'Start date' },
         { name: 'endDate', type: 'date', description: 'End date (nullable)' },
       ],
-      filters: ['organ', 'position', 'name'],
-      sortable: ['id', 'organ', 'position', 'name', 'startDate'],
+      filters: ['organ', 'organType', 'position', 'name'],
+      sortable: ['id', 'organ', 'organType', 'position', 'name', 'startDate'],
     };
   });
 }
