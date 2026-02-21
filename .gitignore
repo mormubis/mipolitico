@@ -17,3 +17,6 @@ tsconfig.tsbuildinfo
 
 # SQLite database files
 *.db
+
+# Runtime logs
+logs/
