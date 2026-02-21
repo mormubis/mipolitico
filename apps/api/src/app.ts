@@ -43,7 +43,7 @@ export async function buildApp(): Promise<FastifyInstance> {
         version: '1.0.0',
         contact: {
           name: 'API Support',
-          email: 'support@example.com',
+          email: 'support@mipoliti.co',
         },
         license: {
           name: 'MIT',
