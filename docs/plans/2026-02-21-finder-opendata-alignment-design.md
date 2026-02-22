@@ -87,15 +87,22 @@ list for Legislature 15, then constructs profile page URLs manually using
 ### New behaviour
 
 1. Navigate `congreso.es/es/opendata/diputados`
-2. Find the `DiputadosActivos` JSON link
-   (`a[href*="DiputadosActivos"][href$="json"]`) — the same link `person.ts`
-   already uses
-3. Fetch the JSON (using `fetch`)
-4. Map each entry to a profile page URL needle, carrying the deputy item in
+2. Find the "Búsqueda personalizada" link
+   (`a[href*="busqueda-de-diputados"][href*="statusOpendata"]`)
+3. Use `page.waitForResponse` to intercept the `searchDiputados` POST response
+   that fires automatically when navigating to that search page
+4. Parse `{ data: DeputyItem[] }` from the intercepted response
+5. Map each deputy to a profile page URL needle, carrying the deputy item in
    `extra`
 
-The profile URL construction is the same as today. This eliminates the hardcoded
-internal API POST endpoint.
+**Note:** The `DiputadosActivos__*.json` bulk file on the opendata page uses a
+different schema (`NOMBRE`, `CIRCUNSCRIPCION`, etc.) and does not contain
+`codParlamentario` or `apellidosNombre`. The `searchDiputados` POST is the only
+opendata-reachable source for those fields. The "Búsqueda personalizada" link on
+the opendata page is the stable entry point that leads to this POST.
+
+The profile URL construction is the same as today. This replaces the hardcoded
+internal API POST endpoint with one discovered via the opendata page.
 
 The `personDetail.ts` retriever is unchanged.
 
@@ -115,16 +122,20 @@ A new `finders/interestDeclarations.ts`:
 
 1. Navigate `congreso.es/es/opendata/diputados`
 2. Find two links on the same page:
-   - `DiputadosActivos` JSON (`a[href*="DiputadosActivos"][href$="json"]`)
+   - "Búsqueda personalizada" link
+     (`a[href*="busqueda-de-diputados"][href*="statusOpendata"]`)
    - `docacteco` JSON (`a[href*="docacteco"][href$="json"]`)
-3. Fetch both JSONs in parallel
-4. Build a lookup map from the `DiputadosActivos` data: normalized
-   `apellidosNombre` → `{ codParlamentario, idLegislatura }`
+3. In parallel: intercept the `searchDiputados` POST (by navigating to the
+   search page) AND fetch the `docacteco` JSON
+4. Build a lookup map from the `searchDiputados` response: normalized
+   `apellidosNombre` → `DeputyItem` (including `codParlamentario`,
+   `idLegislatura`)
 5. Group `docacteco` rows by `NOMBRE`, match each group to a deputy via the
    lookup map
 6. For each matched deputy, emit one `Needle`:
    - `url`: the deputy's profile page URL (same construction as today)
-   - `extra`: `{ codParlamentario, declarations: BulkDeclarationRow[] }`
+   - `extra`:
+     `{ codParlamentario, idLegislatura, declarations: BulkDeclarationRow[] }`
 
 Deputies in `docacteco` with no name match in `DiputadosActivos` are logged as
 warnings and skipped.

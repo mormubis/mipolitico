@@ -1,5 +1,7 @@
 import { Observable } from 'rxjs';
 
+import { random } from '../utils.ts';
+
 import type {
   BulkDeclarationRow,
   InterestDeclarationsNeedleExtra,
@@ -70,7 +72,7 @@ const retriever: Retriever<InterestDeclarationInput> = ({
         const pdfUrl = await page
           .getByText('Declaración de Intereses Económicos')
           .first()
-          .getAttribute('href')
+          .getAttribute('href', { timeout: random(1000, 3000) })
           .catch(() => undefined);
 
         const activities = mapActivities(needleExtra.declarations);
