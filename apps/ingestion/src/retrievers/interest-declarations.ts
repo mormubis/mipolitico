@@ -5,7 +5,7 @@ import { random } from '../utils.ts';
 import type {
   BulkDeclarationRow,
   InterestDeclarationsNeedleExtra,
-} from '../finders/interestDeclarations.ts';
+} from '../finders/interest-declarations.ts';
 import type { Retriever } from '../types.ts';
 import type { InterestDeclarationInput } from '@congress/database';
 

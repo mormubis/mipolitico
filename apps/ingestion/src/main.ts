@@ -7,15 +7,15 @@ import { lastValueFrom, merge, retry } from 'rxjs';
 
 import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
-import { finder as interestDeclarationsFinder } from './finders/interestDeclarations.ts';
+import { finder as interestDeclarationsFinder } from './finders/interest-declarations.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
 import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
-import { processor as interestDeclarationsProcessor } from './processors/interestDeclarations.ts';
+import { processor as interestDeclarationsProcessor } from './processors/interest-declarations.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
-import { retriever as interestDeclarationsRetriever } from './retrievers/interestDeclarations.ts';
+import { retriever as interestDeclarationsRetriever } from './retrievers/interest-declarations.ts';
 import { retriever as interventionRetriever } from './retrievers/intervention.ts';
 import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';

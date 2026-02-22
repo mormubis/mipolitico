@@ -1,6 +1,6 @@
 import { romanize } from '../utils.ts';
 
-import type { DeputyItem } from './personDetail.ts';
+import type { DeputyItem } from './person-detail.ts';
 import type { Finder, Needle } from '../types.ts';
 
 interface BulkDeclarationRow {

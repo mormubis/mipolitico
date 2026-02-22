@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { random } from '../utils.ts';
 
-import type { DeputyItem } from '../finders/personDetail.ts';
+import type { DeputyItem } from '../finders/person-detail.ts';
 import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
