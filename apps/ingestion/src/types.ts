@@ -6,7 +6,9 @@ interface CommonOptions {
   fetch: typeof fetch;
 }
 
-type FinderOptions = CommonOptions;
+type FinderOptions = CommonOptions & {
+  dateFrom?: Date;
+};
 
 type Finder = (
   options: FinderOptions,
