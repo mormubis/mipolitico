@@ -190,7 +190,6 @@ async function runInterventionPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
 
   try {
-    // Finder reads lastSuccessfulRun internally (date watermark)
     const needles = await findAll(interventionFinder, { browser, fetch });
 
     console.log(
