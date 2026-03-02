@@ -36,9 +36,8 @@ function parseSpanishDate(ddmmyyyy: string): Date {
   return date;
 }
 
-const finder: Finder = async ({ browser, fetch, dateFrom: dateFromOption }) => {
-  const lastRun =
-    dateFromOption ?? (await getLastSuccessfulRun('intervention'));
+const finder: Finder = async ({ browser, fetch }) => {
+  const lastRun = await getLastSuccessfulRun('intervention');
   const dateFrom = lastRun ?? LEGISLATURE_XV_START;
 
   const page = await browser.newPage();

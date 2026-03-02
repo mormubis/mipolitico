@@ -6,12 +6,8 @@ interface CommonOptions {
   fetch: typeof fetch;
 }
 
-type FinderOptions = CommonOptions & {
-  dateFrom?: Date;
-};
-
 type Finder = (
-  options: FinderOptions,
+  options: CommonOptions,
 ) => Promisable<string | string[] | Needle[]>;
 
 interface Needle {

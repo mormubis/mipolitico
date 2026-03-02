@@ -153,14 +153,11 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // intervention (dateFrom = 3 months ago — no DB required)
+    // intervention
     // -----------------------------------------------------------------------
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
     console.log('\n[intervention]');
     const interventionResult = await run('intervention', () =>
-      intervention({ ...opts, dateFrom: threeMonthsAgo }),
+      intervention(opts),
     );
     assert(
       'intervention',
