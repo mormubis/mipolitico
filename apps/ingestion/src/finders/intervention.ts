@@ -1,5 +1,3 @@
-import { getLastSuccessfulRun } from '@congress/database';
-
 import type { Finder, Needle } from '../types.ts';
 
 interface BulkInterventionRow {
@@ -19,27 +17,7 @@ interface BulkInterventionRow {
   ENLACEPDF: string;
 }
 
-const LEGISLATURE_XV_START = new Date('2024-01-01');
-
-function parseSpanishDate(ddmmyyyy: string): Date {
-  const parts = ddmmyyyy.split('/');
-  const dd = parts[0] ?? '01';
-  const mm = parts[1] ?? '01';
-  const yyyy = parts[2] ?? '1970';
-  const date = new Date(`${yyyy}-${mm}-${dd}`);
-
-  if (isNaN(date.getTime())) {
-    console.warn(`[intervention] Could not parse date: ${ddmmyyyy}`);
-    return new Date(0); // epoch — will be filtered out by watermark
-  }
-
-  return date;
-}
-
 const finder: Finder = async ({ browser, fetch }) => {
-  const lastRun = await getLastSuccessfulRun('intervention');
-  const dateFrom = lastRun ?? LEGISLATURE_XV_START;
-
   const page = await browser.newPage();
 
   try {
@@ -74,9 +52,6 @@ const finder: Finder = async ({ browser, fetch }) => {
     const needles: Needle[] = [];
 
     for (const row of rows) {
-      const sessionDate = parseSpanishDate(row.SESION);
-
-      if (sessionDate <= dateFrom) continue;
       if (!row.ENLACETEXTOINTEGRO) continue;
       if (seen.has(row.ENLACETEXTOINTEGRO)) continue;
 
@@ -85,7 +60,7 @@ const finder: Finder = async ({ browser, fetch }) => {
     }
 
     console.log(
-      `[intervention] Found ${String(needles.length)} unique session pages after ${dateFrom.toISOString().slice(0, 10)}`,
+      `[intervention] Found ${String(needles.length)} unique session pages`,
     );
 
     return needles;
