@@ -60,6 +60,24 @@ async function run<T>(label: string, fn: () => Promise<T[]>): Promise<T[]> {
   }
 }
 
+async function runFinder(
+  label: string,
+  fn: () =>
+    | string
+    | string[]
+    | Needle[]
+    | Promise<string | string[] | Needle[]>,
+): Promise<Needle | null> {
+  try {
+    return firstNeedle(await fn());
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push({ retriever: label, message: `finder failed: ${message}` });
+    console.error(`  FAIL (finder): ${message}`);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Hardcoded needles
 // ---------------------------------------------------------------------------
@@ -107,14 +125,19 @@ async function main(): Promise<void> {
     // person — run finder to get fresh timestamped URL
     // -----------------------------------------------------------------------
     console.log('\n[person] resolving needle via finder...');
-    const personNeedle = firstNeedle(await personFinder(opts));
+    const personNeedle = await runFinder('person', () => personFinder(opts));
 
     console.log('\n[person]');
-    const personRecords = await run('person', () =>
-      lastValueFrom(
-        personRetriever({ ...opts, ...personNeedle }).pipe(take(5), toArray()),
-      ),
-    );
+    const personRecords = personNeedle
+      ? await run('person', () =>
+          lastValueFrom(
+            personRetriever({ ...opts, ...personNeedle }).pipe(
+              take(5),
+              toArray(),
+            ),
+          ),
+        )
+      : [];
     assert(
       'person',
       personRecords.length >= 1,
@@ -177,14 +200,19 @@ async function main(): Promise<void> {
     // bureau — run finder to capture POST URL
     // -----------------------------------------------------------------------
     console.log('\n[bureau] resolving needle via finder...');
-    const bureauNeedle = firstNeedle(await bureauFinder(opts));
+    const bureauNeedle = await runFinder('bureau', () => bureauFinder(opts));
 
     console.log('\n[bureau]');
-    const bureauRecords = await run('bureau', () =>
-      lastValueFrom(
-        bureauRetriever({ ...opts, ...bureauNeedle }).pipe(take(5), toArray()),
-      ),
-    );
+    const bureauRecords = bureauNeedle
+      ? await run('bureau', () =>
+          lastValueFrom(
+            bureauRetriever({ ...opts, ...bureauNeedle }).pipe(
+              take(5),
+              toArray(),
+            ),
+          ),
+        )
+      : [];
     assert(
       'bureau',
       bureauRecords.length >= 1,
@@ -254,16 +282,10 @@ async function main(): Promise<void> {
     // initiatives — run finder to get fresh timestamped URL, take first needle
     // -----------------------------------------------------------------------
     console.log('\n[initiatives] resolving needle via finder...');
-    const initiativesResult = await initiativesFinder(opts);
-    const initiativesNeedles = initiativesResult as Needle[];
-    const initiativesNeedle = initiativesNeedles[0];
-    if (!initiativesNeedle) {
-      errors.push({
-        retriever: 'initiatives',
-        message: 'finder returned no needles',
-      });
-      console.error('  FAIL: finder returned no needles');
-    } else {
+    const initiativesNeedle = await runFinder('initiatives', () =>
+      initiativesFinder(opts),
+    );
+    if (initiativesNeedle) {
       console.log('\n[initiatives]');
       const initiativesRecords = await run('initiatives', () =>
         lastValueFrom(
