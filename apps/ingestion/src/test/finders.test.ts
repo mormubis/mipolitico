@@ -31,7 +31,7 @@ function assert(finder: string, condition: boolean, message: string): void {
 function normalise(result: string | string[] | Needle[]): Needle[] {
   if (typeof result === 'string') return [{ url: result }];
   if (Array.isArray(result) && result.every((r) => typeof r === 'string')) {
-    return (result).map((url) => ({ url }));
+    return result.map((url) => ({ url }));
   }
   return result;
 }
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
         'person-detail',
         needle.extra !== null &&
           typeof needle.extra === 'object' &&
-          'codParlamentario' in (needle.extra),
+          'codParlamentario' in needle.extra,
         'extra should have codParlamentario',
       );
     }
@@ -141,7 +141,7 @@ async function main(): Promise<void> {
         'voting',
         needle.extra !== null &&
           typeof needle.extra === 'object' &&
-          'legislature' in (needle.extra),
+          'legislature' in needle.extra,
         'extra should have legislature',
       );
       const extra = needle.extra as { legislature: unknown };
@@ -158,6 +158,11 @@ async function main(): Promise<void> {
     console.log('\n[intervention]');
     const interventionResult = await run('intervention', () =>
       intervention({ ...opts, dateFrom: new Date('2025-01-01') }),
+    );
+    assert(
+      'intervention',
+      interventionResult.length > 0,
+      'should return at least one needle',
     );
     for (const needle of interventionResult.slice(0, 5)) {
       assert(
@@ -205,7 +210,7 @@ async function main(): Promise<void> {
         'initiatives',
         needle.extra !== null &&
           typeof needle.extra === 'object' &&
-          'category' in (needle.extra),
+          'category' in needle.extra,
         'extra should have category',
       );
       const extra = needle.extra as { category: unknown };
@@ -233,14 +238,14 @@ async function main(): Promise<void> {
         'interest-declarations',
         needle.extra !== null &&
           typeof needle.extra === 'object' &&
-          'codParlamentario' in (needle.extra),
+          'codParlamentario' in needle.extra,
         'extra should have codParlamentario',
       );
       assert(
         'interest-declarations',
         needle.extra !== null &&
           typeof needle.extra === 'object' &&
-          'declarations' in (needle.extra) &&
+          'declarations' in needle.extra &&
           Array.isArray(
             (needle.extra as { declarations: unknown }).declarations,
           ),
