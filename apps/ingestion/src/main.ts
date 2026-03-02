@@ -1,5 +1,6 @@
 import {
   getExistingSessionKeys,
+  getLastSuccessfulRun,
   prisma,
   updateScraperMetadata,
 } from '@congress/database';
@@ -28,8 +29,26 @@ import {
   persistVotes,
 } from './sinks/index.ts';
 
+import type { BulkInterventionRow } from './finders/intervention.ts';
 import type { Finder, Needle, Retriever } from './types.ts';
 import type { Observable } from 'rxjs';
+
+const LEGISLATURE_XV_START = new Date('2024-01-01');
+
+function parseSpanishDate(ddmmyyyy: string): Date {
+  const parts = ddmmyyyy.split('/');
+  const dd = parts[0] ?? '01';
+  const mm = parts[1] ?? '01';
+  const yyyy = parts[2] ?? '1970';
+  const date = new Date(`${yyyy}-${mm}-${dd}`);
+
+  if (isNaN(date.getTime())) {
+    console.warn(`[intervention] Could not parse date: ${ddmmyyyy}`);
+    return new Date(0);
+  }
+
+  return date;
+}
 
 // ---------------------------------------------------------------------------
 // Pipeline runner helpers
@@ -190,19 +209,27 @@ async function runInterventionPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
 
   try {
-    const needles = await findAll(interventionFinder, { browser, fetch });
+    const lastRun = await getLastSuccessfulRun('intervention');
+    const dateFrom = lastRun ?? LEGISLATURE_XV_START;
+
+    const allNeedles = await findAll(interventionFinder, { browser, fetch });
+
+    const newNeedles = allNeedles.filter((needle) => {
+      const row = needle.extra as BulkInterventionRow;
+      return parseSpanishDate(row.SESION) > dateFrom;
+    });
 
     console.log(
-      `[intervention] Found ${String(needles.length)} sessions to process`,
+      `[intervention] Found ${String(allNeedles.length)} sessions total, ${String(newNeedles.length)} new`,
     );
 
-    if (needles.length === 0) {
+    if (newNeedles.length === 0) {
       console.log('[intervention] No new sessions to process');
       await updateScraperMetadata('intervention', true);
       return;
     }
 
-    const stream = retrieveAll(interventionRetriever, needles, {
+    const stream = retrieveAll(interventionRetriever, newNeedles, {
       browser,
       fetch,
     });
