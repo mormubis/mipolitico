@@ -94,7 +94,7 @@ const retriever: Retriever<InterestDeclarationInput> = ({
           ),
         );
       } finally {
-        await page.close();
+        await page.close().catch(() => undefined);
       }
     })();
   });

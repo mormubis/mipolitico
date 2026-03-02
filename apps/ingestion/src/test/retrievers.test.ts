@@ -4,6 +4,7 @@ import { lastValueFrom, take, toArray } from 'rxjs';
 import { finder as bureauFinder } from '../finders/bureau.ts';
 import { finder as initiativesFinder } from '../finders/initiatives.ts';
 import { finder as personFinder } from '../finders/person.ts';
+import { finder as votingFinder } from '../finders/voting.ts';
 import { retriever as bureauRetriever } from '../retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from '../retrievers/initiatives.ts';
 import { retriever as interestDeclarationsRetriever } from '../retrievers/interest-declarations.ts';
@@ -82,11 +83,6 @@ async function runFinder(
 // Hardcoded needles
 // ---------------------------------------------------------------------------
 
-const VOTING_NEEDLE: Needle = {
-  url: 'https://www.congreso.es/webpublica/opendata/votaciones/Leg15/Sesion1.json',
-  extra: { legislature: 15, session: 1 },
-};
-
 const INTERVENTION_NEEDLE: Needle = {
   url: 'https://www.congreso.es/busqueda-de-intervenciones?p_p_id=intervenciones&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_intervenciones_mode=mostrarTextoIntegro&_intervenciones_legislatura=XV&_intervenciones_id_texto=(DSCD-15-CO-492.CODI.)#(P%C3%A1gina2)',
 };
@@ -163,14 +159,30 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // voting — hardcoded stable needle
+    // voting — run finder to get a real session URL (format changed over time)
+    // Finder returns relative paths; prepend base URL for the retriever.
     // -----------------------------------------------------------------------
+    console.log('\n[voting] resolving needle via finder...');
+    const rawVotingNeedle = await runFinder('voting', () => votingFinder(opts));
+    const votingNeedle =
+      rawVotingNeedle?.url.startsWith('/') === true
+        ? {
+            ...rawVotingNeedle,
+            url: `https://www.congreso.es${rawVotingNeedle.url}`,
+          }
+        : rawVotingNeedle;
+
     console.log('\n[voting]');
-    const votingRecords = await run('voting', () =>
-      lastValueFrom(
-        votingRetriever({ ...opts, ...VOTING_NEEDLE }).pipe(take(5), toArray()),
-      ),
-    );
+    const votingRecords = votingNeedle
+      ? await run('voting', () =>
+          lastValueFrom(
+            votingRetriever({ ...opts, ...votingNeedle }).pipe(
+              take(5),
+              toArray(),
+            ),
+          ),
+        )
+      : [];
     assert(
       'voting',
       votingRecords.length >= 1,
@@ -222,23 +234,24 @@ async function main(): Promise<void> {
       const rec = r as Record<string, unknown>;
       assert(
         'bureau',
-        typeof rec.Nombre === 'string' && rec.Nombre.length > 0,
-        'Nombre should be a non-empty string',
+        typeof rec.apellidosNombre === 'string' &&
+          rec.apellidosNombre.length > 0,
+        'apellidosNombre should be a non-empty string',
       );
       assert(
         'bureau',
-        typeof rec.NombreOrgano === 'string' && rec.NombreOrgano.length > 0,
-        'NombreOrgano should be a non-empty string',
+        typeof rec.descCargo === 'string' && rec.descCargo.length > 0,
+        'descCargo should be a non-empty string',
       );
       assert(
         'bureau',
-        typeof rec.Cargo === 'string',
-        'Cargo should be a string',
+        typeof rec.fechaAltaFormat === 'string',
+        'fechaAltaFormat should be a string',
       );
       assert(
         'bureau',
-        typeof rec.FechaAlta === 'string',
-        'FechaAlta should be a string',
+        typeof rec.siglas === 'string',
+        'siglas should be a string',
       );
     }
 
