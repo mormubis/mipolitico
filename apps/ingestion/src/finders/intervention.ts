@@ -1,4 +1,24 @@
-import type { Finder, Needle } from '../types.ts';
+import { getLastSuccessfulRun } from '@congress/database';
+import { Observable } from 'rxjs';
+
+import type { Finder } from '../types.ts';
+
+const LEGISLATURE_XV_START = new Date('2024-01-01');
+
+function parseSpanishDate(ddmmyyyy: string): Date {
+  const parts = ddmmyyyy.split('/');
+  const dd = parts[0] ?? '01';
+  const mm = parts[1] ?? '01';
+  const yyyy = parts[2] ?? '1970';
+  const date = new Date(`${yyyy}-${mm}-${dd}`);
+
+  if (isNaN(date.getTime())) {
+    console.warn(`[intervention] Could not parse date: ${ddmmyyyy}`);
+    return new Date(0);
+  }
+
+  return date;
+}
 
 interface BulkInterventionRow {
   LEGISLATURA: string;
@@ -17,57 +37,70 @@ interface BulkInterventionRow {
   ENLACEPDF: string;
 }
 
-const finder: Finder = async ({ browser, fetch }) => {
-  const page = await browser.newPage();
+const finder: Finder = ({ browser, fetch }) =>
+  new Observable<string>((subscriber) => {
+    void (async () => {
+      const page = await browser.newPage();
 
-  try {
-    await page.goto('https://www.congreso.es/es/opendata/intervenciones', {
-      waitUntil: 'networkidle',
-    });
+      try {
+        const lastRun = await getLastSuccessfulRun('intervention');
+        const dateFrom = lastRun ?? LEGISLATURE_XV_START;
 
-    const href = await page
-      .locator('a[href*="IntervencionesCronologicamente"][href$="json"]')
-      .first()
-      .getAttribute('href');
+        await page.goto('https://www.congreso.es/es/opendata/intervenciones', {
+          waitUntil: 'networkidle',
+        });
 
-    if (!href) {
-      throw new Error(
-        '[intervention] Could not find IntervencionesCronologicamente JSON link on opendata page',
-      );
-    }
+        const href = await page
+          .locator('a[href*="IntervencionesCronologicamente"][href$="json"]')
+          .first()
+          .getAttribute('href');
 
-    const url = new URL(href, 'https://www.congreso.es').href;
+        if (!href) {
+          subscriber.error(
+            new Error(
+              '[intervention] Could not find IntervencionesCronologicamente JSON link on opendata page',
+            ),
+          );
+          return;
+        }
 
-    const response = await fetch(url);
+        const url = new URL(href, 'https://www.congreso.es').href;
+        const response = await fetch(url);
 
-    if (!response.ok) {
-      throw new Error(
-        `[intervention] Failed to fetch bulk JSON: ${response.status.toString()} ${response.statusText}`,
-      );
-    }
+        if (!response.ok) {
+          subscriber.error(
+            new Error(
+              `[intervention] Failed to fetch bulk JSON: ${response.status.toString()} ${response.statusText}`,
+            ),
+          );
+          return;
+        }
 
-    const rows = (await response.json()) as BulkInterventionRow[];
+        const rows = (await response.json()) as BulkInterventionRow[];
+        const seen = new Set<string>();
+        let emitted = 0;
 
-    const seen = new Set<string>();
-    const needles: Needle[] = [];
+        for (const row of rows) {
+          if (!row.ENLACETEXTOINTEGRO) continue;
+          if (seen.has(row.ENLACETEXTOINTEGRO)) continue;
+          if (parseSpanishDate(row.SESION) <= dateFrom) continue;
 
-    for (const row of rows) {
-      if (!row.ENLACETEXTOINTEGRO) continue;
-      if (seen.has(row.ENLACETEXTOINTEGRO)) continue;
+          seen.add(row.ENLACETEXTOINTEGRO);
+          subscriber.next(row.ENLACETEXTOINTEGRO);
+          emitted++;
+        }
 
-      seen.add(row.ENLACETEXTOINTEGRO);
-      needles.push({ url: row.ENLACETEXTOINTEGRO, extra: row });
-    }
-
-    console.log(
-      `[intervention] Found ${String(needles.length)} unique session pages`,
-    );
-
-    return needles;
-  } finally {
-    await page.close();
-  }
-};
+        console.log(
+          `[intervention] Emitted ${String(emitted)} unique session URLs`,
+        );
+        subscriber.complete();
+      } catch (cause) {
+        subscriber.error(cause);
+      } finally {
+        await page.close();
+      }
+    })();
+  });
 
 export type { BulkInterventionRow };
 export { finder };
