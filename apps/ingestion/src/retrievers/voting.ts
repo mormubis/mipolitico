@@ -25,7 +25,7 @@ const Schema = z.object({
   JSON_URL: z.string(),
 });
 
-const retriever: Retriever<Model> = ({ fetch, url, extra }) => {
+const retriever: Retriever<Model> = ({ fetch, url }) => {
   return new Observable<Model>((subscriber) => {
     void (async () => {
       try {
@@ -63,9 +63,7 @@ const retriever: Retriever<Model> = ({ fetch, url, extra }) => {
 
         for (const vote of votingData.votaciones) {
           const record = {
-            LEGISLATURE:
-              (extra as { legislature?: number | null } | undefined)
-                ?.legislature ?? votingData.informacion.legislatura,
+            LEGISLATURE: votingData.informacion.legislatura,
             SESSION_NUMBER: votingData.informacion.sesion,
             VOTING_NUMBER: votingData.informacion.numeroVotacion,
             VOTING_DATE: votingData.informacion.fecha,

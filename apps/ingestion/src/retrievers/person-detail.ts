@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import { random } from '../utils.ts';
 
-import type { DeputyItem } from '../finders/person-detail.ts';
 import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
@@ -29,10 +28,14 @@ const Schema = z.object({
   WEB: z.string().optional(),
 });
 
-const retriever: Retriever<Model> = ({ browser, extra, url }) => {
+const retriever: Retriever<Model> = ({ browser, url }) => {
   return new Observable<Model>((subscriber) => {
     void (async () => {
-      const deputy = extra as DeputyItem;
+      const urlObj = new URL(url);
+      const codParlamentario = Number(
+        urlObj.searchParams.get('codParlamentario') ?? '0',
+      );
+
       const page = await browser.newPage();
 
       try {
@@ -146,9 +149,30 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
             .catch(() => undefined),
         ]);
 
+        const NOMBRE = await page
+          .locator('h1')
+          .first()
+          .textContent()
+          .then((t) => (t ?? '').trim())
+          .catch(() => '');
+
+        const GRUPO = await page
+          .locator('.grupo-parlamentario, [class*="grupo"]')
+          .first()
+          .textContent()
+          .then((t) => (t ?? '').trim())
+          .catch(() => '');
+
+        const FORMACION = await page
+          .locator('.formacion, [class*="formacion"]')
+          .first()
+          .textContent()
+          .then((t) => (t ?? '').trim())
+          .catch(() => '');
+
         subscriber.next({
-          CIRCUNSCRIPCION: deputy.idCircunscripcion,
-          COD_PARLAMENTARIO: deputy.codParlamentario,
+          CIRCUNSCRIPCION: 0,
+          COD_PARLAMENTARIO: codParlamentario,
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           DECLARACION_ACTIVIDADES_URL: DECLARACION_ACTIVIDADES_URL!,
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -158,15 +182,15 @@ const retriever: Retriever<Model> = ({ browser, extra, url }) => {
           EMAIL,
           FACEBOOK,
           FECHA_NACIMIENTO,
-          FORMACION: deputy.formacion,
+          FORMACION,
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           FOTO_URL: FOTO_URL!,
-          GENERO: deputy.genero,
-          GRUPO: deputy.grupo,
+          GENERO: 0,
+          GRUPO,
           INSTAGRAM,
           LEGISLATURAS,
           LINKEDIN,
-          NOMBRE: deputy.apellidosNombre,
+          NOMBRE,
           TWITTER,
           WEB,
         });
