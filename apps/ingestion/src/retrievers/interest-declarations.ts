@@ -2,12 +2,23 @@ import { Observable } from 'rxjs';
 
 import { random } from '../utils.ts';
 
-import type {
-  BulkDeclarationRow,
-  InterestDeclarationsNeedleExtra,
-} from '../finders/interest-declarations.ts';
 import type { Retriever } from '../types.ts';
 import type { InterestDeclarationInput } from '@congress/database';
+
+interface BulkDeclarationRow {
+  NOMBRE: string;
+  FECHAREGISTRO: string;
+  DECLARACION: string;
+  TIPO: string;
+  PERIODO: string;
+  EMPLEADOR: string;
+  SECTOR: string;
+  DESCRIPCION: string;
+}
+
+function normalizeName(name: string): string {
+  return name.toLowerCase().replace(/,\s*/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 function parsePeriodToDate(year: string): string {
   return `${year.trim()}-01-01`;
@@ -48,56 +59,84 @@ function mapActivities(
 
 const retriever: Retriever<InterestDeclarationInput> = ({
   browser,
-  extra,
+  fetch,
   url,
-}) => {
-  return new Observable((subscriber) => {
+}) =>
+  new Observable((subscriber) => {
     void (async () => {
-      const needleExtra = extra as InterestDeclarationsNeedleExtra;
-
-      if (!Array.isArray(needleExtra.declarations)) {
-        subscriber.error(
-          new Error(
-            `Invalid extra payload for interestDeclarations retriever at ${url}`,
-          ),
-        );
-        return;
-      }
-
-      const page = await browser.newPage();
-
       try {
-        await page.goto(url);
+        // Download the bulk declarations JSON
+        const response = await fetch(url);
 
-        const pdfUrl = await page
-          .getByText('Declaración de Intereses Económicos')
-          .first()
-          .getAttribute('href', { timeout: random(1000, 3000) })
-          .catch(() => undefined);
+        if (!response.ok) {
+          subscriber.error(
+            new Error(
+              `[interestDeclarations] Failed to fetch docacteco JSON: ${response.status.toString()} ${response.statusText}`,
+            ),
+          );
+          return;
+        }
 
-        const activities = mapActivities(needleExtra.declarations);
+        const rows = (await response.json()) as BulkDeclarationRow[];
 
-        subscriber.next({
-          DEPUTY_ID: String(needleExtra.codParlamentario),
-          PDF_URL: pdfUrl ?? undefined,
-          PROFESSIONAL_ACTIVITIES:
-            activities.length > 0 ? activities : undefined,
-          YEAR: new Date().getFullYear(),
-        });
+        // Group rows by normalised NOMBRE
+        const rowsByName = new Map<string, BulkDeclarationRow[]>();
+        for (const row of rows) {
+          const key = normalizeName(row.NOMBRE);
+          const existing = rowsByName.get(key) ?? [];
+          existing.push(row);
+          rowsByName.set(key, existing);
+        }
+
+        console.log(
+          `[interestDeclarations] Processing ${String(rowsByName.size)} deputies`,
+        );
+
+        // For each deputy group, scrape their profile page for the PDF URL
+        for (const [normalizedName, deputyRows] of rowsByName) {
+          const page = await browser.newPage();
+
+          try {
+            // Use a name-based search URL
+            const searchUrl = `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=S&nombre=${encodeURIComponent(normalizedName)}`;
+
+            await page.goto(searchUrl);
+
+            const pdfUrl = await page
+              .getByText('Declaración de Intereses Económicos')
+              .first()
+              .getAttribute('href', { timeout: random(1000, 3000) })
+              .catch(() => undefined);
+
+            const activities = mapActivities(deputyRows);
+
+            subscriber.next({
+              DEPUTY_ID: normalizedName,
+              PDF_URL: pdfUrl ?? undefined,
+              PROFESSIONAL_ACTIVITIES:
+                activities.length > 0 ? activities : undefined,
+              YEAR: new Date().getFullYear(),
+            });
+          } catch (cause) {
+            console.warn(
+              `[interestDeclarations] Failed to scrape profile for ${normalizedName}: ${(cause as Error).message}`,
+            );
+          } finally {
+            await page.close().catch(() => undefined);
+          }
+        }
 
         subscriber.complete();
       } catch (cause) {
         subscriber.error(
           new Error(
-            `Unable to retrieve interest declaration from ${url}: ${(cause as Error).message}`,
+            `[interestDeclarations] Failed: ${(cause as Error).message}`,
             { cause },
           ),
         );
-      } finally {
-        await page.close().catch(() => undefined);
       }
     })();
   });
-};
 
+export type { BulkDeclarationRow };
 export { retriever };
