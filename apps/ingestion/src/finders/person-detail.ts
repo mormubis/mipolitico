@@ -1,3 +1,5 @@
+import { Observable } from 'rxjs';
+
 import { romanize } from '../utils.ts';
 
 import type { Finder } from '../types.ts';
@@ -17,46 +19,56 @@ interface DeputyItem {
   nombreCircunscripcion: string;
 }
 
-const finder: Finder = async ({ browser }) => {
-  const page = await browser.newPage();
+const finder: Finder = ({ browser }) =>
+  new Observable<string>((subscriber) => {
+    void (async () => {
+      const page = await browser.newPage();
 
-  try {
-    await page.goto('https://www.congreso.es/es/opendata/diputados');
+      try {
+        await page.goto('https://www.congreso.es/es/opendata/diputados');
 
-    const searchHref = await page
-      .locator('a[href*="busqueda-de-diputados"][href*="statusOpendata"]')
-      .first()
-      .getAttribute('href');
+        const searchHref = await page
+          .locator('a[href*="busqueda-de-diputados"][href*="statusOpendata"]')
+          .first()
+          .getAttribute('href');
 
-    if (!searchHref) {
-      throw new Error(
-        '[personDetail] Could not find búsqueda personalizada link on opendata/diputados page',
-      );
-    }
+        if (!searchHref) {
+          subscriber.error(
+            new Error(
+              '[personDetail] Could not find búsqueda personalizada link on opendata/diputados page',
+            ),
+          );
+          return;
+        }
 
-    const searchUrl = new URL(searchHref, 'https://www.congreso.es').href;
+        const searchUrl = new URL(searchHref, 'https://www.congreso.es').href;
 
-    const [response] = await Promise.all([
-      page.waitForResponse(
-        (r) =>
-          r.url().includes('searchDiputados') &&
-          r.request().method() === 'POST',
-        { timeout: 15000 },
-      ),
-      page.goto(searchUrl, { waitUntil: 'networkidle' }),
-    ]);
+        const [response] = await Promise.all([
+          page.waitForResponse(
+            (r) =>
+              r.url().includes('searchDiputados') &&
+              r.request().method() === 'POST',
+            { timeout: 15000 },
+          ),
+          page.goto(searchUrl, { waitUntil: 'networkidle' }),
+        ]);
 
-    const json = (await response.json()) as { data: DeputyItem[] };
-    const deputies = json.data;
+        const json = (await response.json()) as { data: DeputyItem[] };
 
-    return deputies.map((item) => ({
-      url: `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false`,
-      extra: item,
-    }));
-  } finally {
-    await page.close();
-  }
-};
+        for (const item of json.data) {
+          subscriber.next(
+            `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false`,
+          );
+        }
+
+        subscriber.complete();
+      } catch (cause) {
+        subscriber.error(cause);
+      } finally {
+        await page.close();
+      }
+    })();
+  });
 
 export type { DeputyItem };
 export { finder };
