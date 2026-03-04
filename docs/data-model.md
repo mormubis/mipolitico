@@ -74,16 +74,17 @@ records, and removes the name-collision risk.
 
 ### 2. `InterestDeclaration` links to `Deputy` (a term), not `Person`
 
-`InterestDeclaration.deputyId` references `Deputy.id`. A declaration is filed
-annually by a person regardless of whether they are currently serving — it
-belongs to the person's career, not to a specific legislative term. If a deputy
-serves in legislature XIV and XV, their XIV declarations and XV declarations
-link to different `Deputy` rows, making it impossible to query "all declarations
-ever filed by person X" without joining through `Deputy → Person`.
+`InterestDeclaration.deputyId` references `Deputy.id`. This is intentional and
+correct: declarations are filed per active deputy term. A person re-elected to a
+new legislature must file a new declaration, so the declaration is scoped to the
+legislative term, not the person's career. Linking to `Deputy` captures both the
+person and the legislature implicitly via the existing `Deputy → Person`
+relation.
 
-**Recommendation:** Change `InterestDeclaration.deputyId` to reference
-`Person.id` directly. Rename the field to `personId` for consistency with
-`Speech` and `OrganMember`.
+Querying "all declarations ever filed by person X" requires joining through
+`Deputy → Person`, which is one extra hop but semantically accurate.
+
+**No change recommended.** The current design is correct.
 
 ### 3. `Vote` has no reconcilable identifier for future person linkage
 
@@ -160,7 +161,7 @@ known loss explicitly.
 | Gap                                                     | Severity | Recommended Action                   |
 | ------------------------------------------------------- | -------- | ------------------------------------ |
 | No `codParlamentario` stored                            | High     | Add to `Person` or `Deputy`          |
-| `InterestDeclaration` → `Deputy` instead of `Person`    | Medium   | Relink to `Person`                   |
+| `InterestDeclaration` → `Deputy` (term-scoped)          | —        | Correct by design                    |
 | `Vote` has no stable person identifier                  | Low      | Accept; store source ID if available |
 | `Speech.sessionId` has no referential integrity         | Low      | Accept; document for future          |
 | `Party` model unpopulated                               | Medium   | Remove or build scraper              |
