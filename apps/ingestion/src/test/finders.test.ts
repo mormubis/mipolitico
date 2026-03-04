@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { lastValueFrom, toArray } from 'rxjs';
 
 import { finder as bureau } from '../finders/bureau.ts';
 import { finder as initiatives } from '../finders/initiatives.ts';
@@ -7,12 +8,6 @@ import { finder as intervention } from '../finders/intervention.ts';
 import { finder as personDetail } from '../finders/person-detail.ts';
 import { finder as person } from '../finders/person.ts';
 import { finder as voting } from '../finders/voting.ts';
-
-import type { Needle } from '../types.ts';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 interface AssertionError {
   finder: string;
@@ -28,30 +23,18 @@ function assert(finder: string, condition: boolean, message: string): void {
   }
 }
 
-function normalise(result: string | string[] | Needle[]): Needle[] {
-  if (typeof result === 'string') return [{ url: result }];
-  if (Array.isArray(result) && result.every((r) => typeof r === 'string')) {
-    return result.map((url) => ({ url }));
-  }
-  return result;
-}
-
 async function run(
   label: string,
-  fn: () =>
-    | string
-    | string[]
-    | Needle[]
-    | Promise<string | string[] | Needle[]>,
-): Promise<Needle[]> {
+  fn: () => Promise<string[]>,
+): Promise<string[]> {
   const start = Date.now();
   try {
-    const result = normalise(await fn());
+    const urls = await fn();
     const elapsed = Date.now() - start;
     console.log(
-      `  PASS (${elapsed.toString()}ms) — ${result.length.toString()} needle(s)`,
+      `  PASS (${elapsed.toString()}ms) — ${urls.length.toString()} url(s)`,
     );
-    return result;
+    return urls;
   } catch (err) {
     const elapsed = Date.now() - start;
     const message = err instanceof Error ? err.message : String(err);
@@ -61,204 +44,120 @@ async function run(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
 async function main(): Promise<void> {
   const browser = await chromium.launch();
 
   try {
     const opts = { browser, fetch: globalThis.fetch };
 
-    // -----------------------------------------------------------------------
     // person
-    // -----------------------------------------------------------------------
     console.log('\n[person]');
-    const personResult = await run('person', () => person(opts));
+    const personUrls = await run('person', () =>
+      lastValueFrom(person(opts).pipe(toArray())),
+    );
+    assert('person', personUrls.length === 1, 'should emit exactly 1 url');
     assert(
       'person',
-      personResult.length === 1,
-      'should return exactly 1 needle',
+      personUrls[0]?.startsWith('https://') ?? false,
+      'url should start with https://',
     );
-    if (personResult[0]) {
-      assert(
-        'person',
-        personResult[0].url.startsWith('https://'),
-        'url should start with https://',
-      );
-      assert(
-        'person',
-        personResult[0].url.endsWith('.json'),
-        'url should end with .json',
-      );
-    }
+    assert(
+      'person',
+      personUrls[0]?.endsWith('.json') ?? false,
+      'url should end with .json',
+    );
 
-    // -----------------------------------------------------------------------
     // person-detail
-    // -----------------------------------------------------------------------
     console.log('\n[person-detail]');
-    const personDetailResult = await run('person-detail', () =>
-      personDetail(opts),
+    const personDetailUrls = await run('person-detail', () =>
+      lastValueFrom(personDetail(opts).pipe(toArray())),
     );
     assert(
       'person-detail',
-      personDetailResult.length > 0,
-      'should return at least one needle',
+      personDetailUrls.length > 0,
+      'should emit at least one url',
     );
-    for (const needle of personDetailResult.slice(0, 5)) {
+    for (const url of personDetailUrls.slice(0, 5)) {
       assert(
         'person-detail',
-        typeof needle.url === 'string' && needle.url.length > 0,
-        'url should be a non-empty string',
-      );
-      assert(
-        'person-detail',
-        needle.extra !== null &&
-          typeof needle.extra === 'object' &&
-          'codParlamentario' in needle.extra,
-        'extra should have codParlamentario',
+        url.includes('codParlamentario'),
+        'url should include codParlamentario param',
       );
     }
 
-    // -----------------------------------------------------------------------
     // voting
-    // -----------------------------------------------------------------------
     console.log('\n[voting]');
-    const votingResult = await run('voting', () => voting(opts));
-    assert(
-      'voting',
-      votingResult.length > 0,
-      'should return at least one needle',
+    const votingUrls = await run('voting', () =>
+      lastValueFrom(voting(opts).pipe(toArray())),
     );
-    for (const needle of votingResult.slice(0, 5)) {
-      assert(
-        'voting',
-        needle.url.endsWith('.json'),
-        'url should end with .json',
-      );
-      assert(
-        'voting',
-        needle.extra !== null &&
-          typeof needle.extra === 'object' &&
-          'legislature' in needle.extra,
-        'extra should have legislature',
-      );
-      const extra = needle.extra as { legislature: unknown };
-      assert(
-        'voting',
-        typeof extra.legislature === 'number' || extra.legislature === null,
-        'legislature should be a number or null',
-      );
+    assert('voting', votingUrls.length > 0, 'should emit at least one url');
+    for (const url of votingUrls.slice(0, 5)) {
+      assert('voting', url.endsWith('.json'), 'url should end with .json');
     }
 
-    // -----------------------------------------------------------------------
     // intervention
-    // -----------------------------------------------------------------------
     console.log('\n[intervention]');
-    const interventionResult = await run('intervention', () =>
-      intervention(opts),
+    const interventionUrls = await run('intervention', () =>
+      lastValueFrom(intervention(opts).pipe(toArray())),
     );
     assert(
       'intervention',
-      interventionResult.length > 0,
-      'should return at least one needle',
+      interventionUrls.length > 0,
+      'should emit at least one url',
     );
-    for (const needle of interventionResult.slice(0, 5)) {
+    for (const url of interventionUrls.slice(0, 5)) {
       assert(
         'intervention',
-        typeof needle.url === 'string' && needle.url.length > 0,
-        'url should be a non-empty string',
-      );
-    }
-
-    // -----------------------------------------------------------------------
-    // bureau
-    // -----------------------------------------------------------------------
-    console.log('\n[bureau]');
-    const bureauResult = await run('bureau', () => bureau(opts));
-    assert(
-      'bureau',
-      bureauResult.length === 1,
-      'should return exactly 1 needle',
-    );
-    if (bureauResult[0]) {
-      assert(
-        'bureau',
-        bureauResult[0].url.startsWith('https://'),
+        url.startsWith('https://'),
         'url should start with https://',
       );
     }
 
-    // -----------------------------------------------------------------------
+    // bureau
+    console.log('\n[bureau]');
+    const bureauUrls = await run('bureau', () =>
+      lastValueFrom(bureau(opts).pipe(toArray())),
+    );
+    assert('bureau', bureauUrls.length === 1, 'should emit exactly 1 url');
+    assert(
+      'bureau',
+      bureauUrls[0]?.startsWith('https://') ?? false,
+      'url should start with https://',
+    );
+
     // initiatives
-    // -----------------------------------------------------------------------
     console.log('\n[initiatives]');
-    const initiativesResult = await run('initiatives', () => initiatives(opts));
+    const initiativesUrls = await run('initiatives', () =>
+      lastValueFrom(initiatives(opts).pipe(toArray())),
+    );
     assert(
       'initiatives',
-      initiativesResult.length >= 1 && initiativesResult.length <= 4,
-      'should return 1–4 needles',
+      initiativesUrls.length >= 1 && initiativesUrls.length <= 4,
+      'should emit 1–4 urls',
     );
-    for (const needle of initiativesResult) {
-      assert(
-        'initiatives',
-        needle.url.includes('.json'),
-        'url should contain .json',
-      );
-      assert(
-        'initiatives',
-        needle.extra !== null &&
-          typeof needle.extra === 'object' &&
-          'category' in needle.extra,
-        'extra should have category',
-      );
-      const extra = needle.extra as { category: unknown };
-      assert(
-        'initiatives',
-        typeof extra.category === 'string',
-        'category should be a string',
-      );
+    for (const url of initiativesUrls) {
+      assert('initiatives', url.includes('.json'), 'url should contain .json');
     }
 
-    // -----------------------------------------------------------------------
     // interest-declarations
-    // -----------------------------------------------------------------------
     console.log('\n[interest-declarations]');
-    const interestResult = await run('interest-declarations', () =>
-      interestDeclarations(opts),
+    const interestUrls = await run('interest-declarations', () =>
+      lastValueFrom(interestDeclarations(opts).pipe(toArray())),
     );
     assert(
       'interest-declarations',
-      interestResult.length > 0,
-      'should return at least one needle',
+      interestUrls.length === 1,
+      'should emit exactly 1 url',
     );
-    for (const needle of interestResult.slice(0, 5)) {
-      assert(
-        'interest-declarations',
-        needle.extra !== null &&
-          typeof needle.extra === 'object' &&
-          'codParlamentario' in needle.extra,
-        'extra should have codParlamentario',
-      );
-      assert(
-        'interest-declarations',
-        needle.extra !== null &&
-          typeof needle.extra === 'object' &&
-          'declarations' in needle.extra &&
-          Array.isArray(
-            (needle.extra as { declarations: unknown }).declarations,
-          ),
-        'extra.declarations should be an array',
-      );
-    }
+    assert(
+      'interest-declarations',
+      interestUrls[0]?.includes('docacteco') ?? false,
+      'url should include docacteco',
+    );
   } finally {
     await browser.close();
   }
 
-  // -----------------------------------------------------------------------
-  // Summary
-  // -----------------------------------------------------------------------
   console.log('\n---');
   if (errors.length === 0) {
     console.log('All finders passed.');

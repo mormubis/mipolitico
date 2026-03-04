@@ -1,8 +1,9 @@
 import { chromium } from 'playwright';
-import { lastValueFrom, take, toArray } from 'rxjs';
+import { firstValueFrom, lastValueFrom, take, toArray } from 'rxjs';
 
 import { finder as bureauFinder } from '../finders/bureau.ts';
 import { finder as initiativesFinder } from '../finders/initiatives.ts';
+import { finder as interestDeclarationsFinder } from '../finders/interest-declarations.ts';
 import { finder as personFinder } from '../finders/person.ts';
 import { finder as votingFinder } from '../finders/voting.ts';
 import { retriever as bureauRetriever } from '../retrievers/bureau.ts';
@@ -11,8 +12,6 @@ import { retriever as interestDeclarationsRetriever } from '../retrievers/intere
 import { retriever as interventionRetriever } from '../retrievers/intervention.ts';
 import { retriever as personRetriever } from '../retrievers/person.ts';
 import { retriever as votingRetriever } from '../retrievers/voting.ts';
-
-import type { Needle } from '../types.ts';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,17 +29,6 @@ function assert(retriever: string, condition: boolean, message: string): void {
     errors.push({ retriever, message });
     console.error(`  FAIL: ${message}`);
   }
-}
-
-function firstNeedle(result: string | string[] | Needle[]): Needle {
-  if (typeof result === 'string') return { url: result };
-  if (Array.isArray(result) && typeof result[0] === 'string') {
-    return { url: result[0] };
-  }
-  const needles = result as Needle[];
-  const first = needles[0];
-  if (!first) throw new Error('Finder returned no needles');
-  return first;
 }
 
 async function run<T>(label: string, fn: () => Promise<T[]>): Promise<T[]> {
@@ -61,51 +49,12 @@ async function run<T>(label: string, fn: () => Promise<T[]>): Promise<T[]> {
   }
 }
 
-async function runFinder(
-  label: string,
-  fn: () =>
-    | string
-    | string[]
-    | Needle[]
-    | Promise<string | string[] | Needle[]>,
-): Promise<Needle | null> {
-  try {
-    return firstNeedle(await fn());
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    errors.push({ retriever: label, message: `finder failed: ${message}` });
-    console.error(`  FAIL (finder): ${message}`);
-    return null;
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Hardcoded needles
+// Hardcoded stable URLs
 // ---------------------------------------------------------------------------
 
-const INTERVENTION_NEEDLE: Needle = {
-  url: 'https://www.congreso.es/busqueda-de-intervenciones?p_p_id=intervenciones&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_intervenciones_mode=mostrarTextoIntegro&_intervenciones_legislatura=XV&_intervenciones_id_texto=(DSCD-15-CO-492.CODI.)#(P%C3%A1gina2)',
-};
-
-const INTEREST_DECLARATIONS_NEEDLE: Needle = {
-  url: 'https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=160&idLegislatura=XV&mostrarAgenda=false',
-  extra: {
-    codParlamentario: 160,
-    idLegislatura: 15,
-    declarations: [
-      {
-        NOMBRE: 'Abades Martínez,Cristina',
-        FECHAREGISTRO: '08/08/2023',
-        DECLARACION: 'Declaración inicial',
-        TIPO: 'ACTIVIDAD',
-        PERIODO: '2018',
-        EMPLEADOR: 'AYUNTAMIENTO DE CERVO',
-        SECTOR: 'PÚBLICO',
-        DESCRIPCION: 'FUNCIONARIA. LETRADA-ASESORA',
-      },
-    ],
-  },
-};
+const INTERVENTION_URL =
+  'https://www.congreso.es/busqueda-de-intervenciones?p_p_id=intervenciones&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_intervenciones_mode=mostrarTextoIntegro&_intervenciones_legislatura=XV&_intervenciones_id_texto=(DSCD-15-CO-492.CODI.)#(P%C3%A1gina2)';
 
 // ---------------------------------------------------------------------------
 // Main
@@ -120,14 +69,24 @@ async function main(): Promise<void> {
     // -----------------------------------------------------------------------
     // person — run finder to get fresh timestamped URL
     // -----------------------------------------------------------------------
-    console.log('\n[person] resolving needle via finder...');
-    const personNeedle = await runFinder('person', () => personFinder(opts));
+    console.log('\n[person] resolving url via finder...');
+    let personUrl: string | null = null;
+    try {
+      personUrl = await firstValueFrom(personFinder(opts));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push({
+        retriever: 'person',
+        message: `finder failed: ${message}`,
+      });
+      console.error(`  FAIL (finder): ${message}`);
+    }
 
     console.log('\n[person]');
-    const personRecords = personNeedle
+    const personRecords = personUrl
       ? await run('person', () =>
           lastValueFrom(
-            personRetriever({ ...opts, ...personNeedle }).pipe(
+            personRetriever({ ...opts, url: personUrl }).pipe(
               take(5),
               toArray(),
             ),
@@ -159,24 +118,27 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // voting — run finder to get a real session URL (format changed over time)
-    // Finder returns relative paths; prepend base URL for the retriever.
+    // voting — run finder to get a real session URL
     // -----------------------------------------------------------------------
-    console.log('\n[voting] resolving needle via finder...');
-    const rawVotingNeedle = await runFinder('voting', () => votingFinder(opts));
-    const votingNeedle =
-      rawVotingNeedle?.url.startsWith('/') === true
-        ? {
-            ...rawVotingNeedle,
-            url: `https://www.congreso.es${rawVotingNeedle.url}`,
-          }
-        : rawVotingNeedle;
+    console.log('\n[voting] resolving url via finder...');
+    let votingUrl: string | null = null;
+    try {
+      const raw = await firstValueFrom(votingFinder(opts));
+      votingUrl = raw.startsWith('/') ? `https://www.congreso.es${raw}` : raw;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push({
+        retriever: 'voting',
+        message: `finder failed: ${message}`,
+      });
+      console.error(`  FAIL (finder): ${message}`);
+    }
 
     console.log('\n[voting]');
-    const votingRecords = votingNeedle
+    const votingRecords = votingUrl
       ? await run('voting', () =>
           lastValueFrom(
-            votingRetriever({ ...opts, ...votingNeedle }).pipe(
+            votingRetriever({ ...opts, url: votingUrl }).pipe(
               take(5),
               toArray(),
             ),
@@ -211,14 +173,24 @@ async function main(): Promise<void> {
     // -----------------------------------------------------------------------
     // bureau — run finder to capture POST URL
     // -----------------------------------------------------------------------
-    console.log('\n[bureau] resolving needle via finder...');
-    const bureauNeedle = await runFinder('bureau', () => bureauFinder(opts));
+    console.log('\n[bureau] resolving url via finder...');
+    let bureauUrl: string | null = null;
+    try {
+      bureauUrl = await firstValueFrom(bureauFinder(opts));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push({
+        retriever: 'bureau',
+        message: `finder failed: ${message}`,
+      });
+      console.error(`  FAIL (finder): ${message}`);
+    }
 
     console.log('\n[bureau]');
-    const bureauRecords = bureauNeedle
+    const bureauRecords = bureauUrl
       ? await run('bureau', () =>
           lastValueFrom(
-            bureauRetriever({ ...opts, ...bureauNeedle }).pipe(
+            bureauRetriever({ ...opts, url: bureauUrl }).pipe(
               take(5),
               toArray(),
             ),
@@ -256,12 +228,12 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // intervention — hardcoded stable needle
+    // intervention — hardcoded stable URL
     // -----------------------------------------------------------------------
     console.log('\n[intervention]');
     const interventionRecords = await run('intervention', () =>
       lastValueFrom(
-        interventionRetriever({ ...opts, ...INTERVENTION_NEEDLE }).pipe(
+        interventionRetriever({ ...opts, url: INTERVENTION_URL }).pipe(
           take(5),
           toArray(),
         ),
@@ -292,17 +264,26 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // initiatives — run finder to get fresh timestamped URL, take first needle
+    // initiatives — run finder to get fresh timestamped URL, take first
     // -----------------------------------------------------------------------
-    console.log('\n[initiatives] resolving needle via finder...');
-    const initiativesNeedle = await runFinder('initiatives', () =>
-      initiativesFinder(opts),
-    );
-    if (initiativesNeedle) {
+    console.log('\n[initiatives] resolving url via finder...');
+    let initiativesUrl: string | null = null;
+    try {
+      initiativesUrl = await firstValueFrom(initiativesFinder(opts));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push({
+        retriever: 'initiatives',
+        message: `finder failed: ${message}`,
+      });
+      console.error(`  FAIL (finder): ${message}`);
+    }
+
+    if (initiativesUrl) {
       console.log('\n[initiatives]');
       const initiativesRecords = await run('initiatives', () =>
         lastValueFrom(
-          initiativesRetriever({ ...opts, ...initiativesNeedle }).pipe(
+          initiativesRetriever({ ...opts, url: initiativesUrl }).pipe(
             take(5),
             toArray(),
           ),
@@ -334,21 +315,41 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // interest-declarations — hardcoded stable needle
+    // interest-declarations — run finder to get the docacteco JSON URL
+    // Note: the retriever calls fetch(url) directly on the bulk JSON endpoint,
+    // so we must use the URL the finder resolves (not the opendata page itself).
+    // We use take(1) to avoid processing all deputies in the integration test.
     // -----------------------------------------------------------------------
+    console.log('\n[interest-declarations] resolving url via finder...');
+    let interestDeclarationsUrl: string | null = null;
+    try {
+      interestDeclarationsUrl = await firstValueFrom(
+        interestDeclarationsFinder(opts),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push({
+        retriever: 'interest-declarations',
+        message: `finder failed: ${message}`,
+      });
+      console.error(`  FAIL (finder): ${message}`);
+    }
+
     console.log('\n[interest-declarations]');
-    const interestRecords = await run('interest-declarations', () =>
-      lastValueFrom(
-        interestDeclarationsRetriever({
-          ...opts,
-          ...INTEREST_DECLARATIONS_NEEDLE,
-        }).pipe(take(5), toArray()),
-      ),
-    );
+    const interestRecords = interestDeclarationsUrl
+      ? await run('interest-declarations', () =>
+          lastValueFrom(
+            interestDeclarationsRetriever({
+              ...opts,
+              url: interestDeclarationsUrl,
+            }).pipe(take(1), toArray()),
+          ),
+        )
+      : [];
     assert(
       'interest-declarations',
       interestRecords.length === 1,
-      'should emit exactly 1 record',
+      'should emit at least 1 record',
     );
     for (const r of interestRecords) {
       const rec = r as Record<string, unknown>;
