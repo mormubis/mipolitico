@@ -16,4 +16,4 @@ type Retriever<T> = (options: RetrieverOptions) => Observable<T>;
 
 type Processor<T, U = T> = OperatorFunction<T, U>;
 
-export type { Finder, Processor, Retriever, RetrieverOptions };
+export type { CommonOptions, Finder, Processor, Retriever, RetrieverOptions };

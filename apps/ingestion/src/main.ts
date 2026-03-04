@@ -1,10 +1,9 @@
 import {
   getExistingSessionKeys,
-  getLastSuccessfulRun,
   prisma,
   updateScraperMetadata,
 } from '@congress/database';
-import { lastValueFrom, merge, retry } from 'rxjs';
+import { filter, lastValueFrom, merge, mergeMap, retry, share } from 'rxjs';
 
 import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
@@ -29,80 +28,82 @@ import {
   persistVotes,
 } from './sinks/index.ts';
 
-import type { BulkInterventionRow } from './finders/intervention.ts';
-import type { Finder, Needle, Retriever } from './types.ts';
-import type { Observable } from 'rxjs';
+import type { CommonOptions, Finder, Retriever } from './types.ts';
+import type { OperatorFunction } from 'rxjs';
 
-const LEGISLATURE_XV_START = new Date('2024-01-01');
+type Branch<T> = [Retriever<T>, ...OperatorFunction<T, unknown>[]];
 
-function parseSpanishDate(ddmmyyyy: string): Date {
-  const parts = ddmmyyyy.split('/');
-  const dd = parts[0] ?? '01';
-  const mm = parts[1] ?? '01';
-  const yyyy = parts[2] ?? '1970';
-  const date = new Date(`${yyyy}-${mm}-${dd}`);
-
-  if (isNaN(date.getTime())) {
-    console.warn(`[intervention] Could not parse date: ${ddmmyyyy}`);
-    return new Date(0);
-  }
-
-  return date;
+interface PipelineEntry {
+  name: string;
+  finder: Finder;
+  branches: Branch<unknown>[];
+  urlFilter?: (url: string) => boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Pipeline runner helpers
-// ---------------------------------------------------------------------------
+async function runPipeline(
+  entry: PipelineEntry,
+  options: CommonOptions,
+): Promise<void> {
+  const urlFilter = entry.urlFilter;
+  const base$ = entry.finder(options);
+  const urls$ = urlFilter
+    ? base$.pipe(filter(urlFilter), share())
+    : base$.pipe(share());
 
-async function findAll(
-  finder: Finder,
-  options: Parameters<Finder>[0],
-): Promise<Needle[]> {
-  const result = await finder(options);
-
-  if (Array.isArray(result)) {
-    return result.map((item) =>
-      typeof item === 'object' ? item : { url: item },
-    );
+  if (entry.branches.length === 0) {
+    await lastValueFrom(urls$, { defaultValue: undefined });
+    return;
   }
 
-  return [{ url: result }];
-}
-
-function retrieveAll<T>(
-  retriever: Retriever<T>,
-  needles: Needle[],
-  options: Parameters<Finder>[0],
-): Observable<T> {
-  return merge(
-    ...needles.map((needle) =>
-      retriever({ ...needle, ...options }).pipe(
-        retry({ delay: 15 * 1000, count: 1 }),
+  const branchStreams = entry.branches.map(([retriever, ...ops]) => {
+    let stream: ReturnType<typeof urls$.pipe> = urls$.pipe(
+      mergeMap((url: string) =>
+        retriever({ url, ...options }).pipe(
+          retry({ delay: 15 * 1000, count: 1 }),
+        ),
       ),
-    ),
-  );
+    );
+    for (const op of ops) {
+      stream = stream.pipe(op);
+    }
+    return stream;
+  });
+
+  await lastValueFrom(merge(...branchStreams));
 }
 
 // ---------------------------------------------------------------------------
-// Person pipeline
+// Watermark helpers
+// ---------------------------------------------------------------------------
+
+async function buildVotingFilter(): Promise<(url: string) => boolean> {
+  const existingKeys = await getExistingSessionKeys();
+  return (url: string) => {
+    const match = /Leg(\d+)\/Sesion(\d+)/.exec(url);
+    if (!match) return true;
+    const leg = match[1];
+    const sess = match[2];
+    if (!leg || !sess) return true;
+    const key = `${leg}-${parseInt(sess, 10).toString()}`;
+    return !existingKeys.has(key);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline runners
 // ---------------------------------------------------------------------------
 
 async function runPersonPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
-
   try {
-    const needles = await findAll(personFinder, { browser, fetch });
-
-    if (needles.length === 0) {
-      console.log('[person] No needles found, skipping');
-      await updateScraperMetadata('deputies', true);
-      return;
-    }
-
-    const stream = retrieveAll(personRetriever, needles, { browser, fetch });
-
-    await lastValueFrom(stream.pipe(persistDeputies()));
-
+    await runPipeline(
+      {
+        name: 'deputies',
+        finder: personFinder,
+        branches: [[personRetriever, persistDeputies()]],
+      },
+      { browser, fetch },
+    );
     await updateScraperMetadata('deputies', true);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -116,49 +117,19 @@ async function runPersonPipeline(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Voting pipeline
-// ---------------------------------------------------------------------------
-
 async function runVotingPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
-
   try {
-    const allNeedles = await findAll(votingFinder, { browser, fetch });
-
-    // Watermark: filter out sessions already in DB
-    const existingKeys = await getExistingSessionKeys();
-
-    const newNeedles = allNeedles.filter((needle) => {
-      // URL pattern: Leg{N}/Sesion{N}.json
-      const match = /Leg(\d+)\/Sesion(\d+)/.exec(needle.url);
-      if (!match) return true; // Keep if URL doesn't match expected pattern
-
-      const leg = match[1];
-      const sess = match[2];
-      if (!leg || !sess) return true;
-
-      const key = `${leg}-${parseInt(sess, 10).toString()}`;
-      return !existingKeys.has(key);
-    });
-
-    console.log(
-      `[voting] Found ${String(allNeedles.length)} sessions total, ${String(newNeedles.length)} new`,
+    const urlFilter = await buildVotingFilter();
+    await runPipeline(
+      {
+        name: 'voting',
+        finder: votingFinder,
+        branches: [[votingRetriever, persistVotes()]],
+        urlFilter,
+      },
+      { browser, fetch },
     );
-
-    if (newNeedles.length === 0) {
-      console.log('[voting] No new sessions to process');
-      await updateScraperMetadata('voting', true);
-      return;
-    }
-
-    const stream = retrieveAll(votingRetriever, newNeedles, {
-      browser,
-      fetch,
-    });
-
-    await lastValueFrom(stream.pipe(persistVotes()));
-
     await updateScraperMetadata('voting', true);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -170,26 +141,17 @@ async function runVotingPipeline(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Bureau pipeline
-// ---------------------------------------------------------------------------
-
 async function runBureauPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
-
   try {
-    const needles = await findAll(bureauFinder, { browser, fetch });
-
-    if (needles.length === 0) {
-      console.log('[bureau] No needles found, skipping');
-      await updateScraperMetadata('bureau', true);
-      return;
-    }
-
-    const stream = retrieveAll(bureauRetriever, needles, { browser, fetch });
-
-    await lastValueFrom(stream.pipe(persistOrganMembers()));
-
+    await runPipeline(
+      {
+        name: 'bureau',
+        finder: bureauFinder,
+        branches: [[bureauRetriever, persistOrganMembers()]],
+      },
+      { browser, fetch },
+    );
     await updateScraperMetadata('bureau', true);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -201,41 +163,17 @@ async function runBureauPipeline(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Intervention pipeline
-// ---------------------------------------------------------------------------
-
 async function runInterventionPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
-
   try {
-    const lastRun = await getLastSuccessfulRun('intervention');
-    const dateFrom = lastRun ?? LEGISLATURE_XV_START;
-
-    const allNeedles = await findAll(interventionFinder, { browser, fetch });
-
-    const newNeedles = allNeedles.filter((needle) => {
-      const row = needle.extra as BulkInterventionRow;
-      return parseSpanishDate(row.SESION) > dateFrom;
-    });
-
-    console.log(
-      `[intervention] Found ${String(allNeedles.length)} sessions total, ${String(newNeedles.length)} new`,
+    await runPipeline(
+      {
+        name: 'intervention',
+        finder: interventionFinder,
+        branches: [[interventionRetriever, persistSpeeches()]],
+      },
+      { browser, fetch },
     );
-
-    if (newNeedles.length === 0) {
-      console.log('[intervention] No new sessions to process');
-      await updateScraperMetadata('intervention', true);
-      return;
-    }
-
-    const stream = retrieveAll(interventionRetriever, newNeedles, {
-      browser,
-      fetch,
-    });
-
-    await lastValueFrom(stream.pipe(persistSpeeches()));
-
     await updateScraperMetadata('intervention', true);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -249,29 +187,17 @@ async function runInterventionPipeline(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Initiatives pipeline
-// ---------------------------------------------------------------------------
-
 async function runInitiativesPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
-
   try {
-    const needles = await findAll(initiativesFinder, { browser, fetch });
-
-    if (needles.length === 0) {
-      console.log('[initiatives] No needles found, skipping');
-      await updateScraperMetadata('initiatives', true);
-      return;
-    }
-
-    const stream = retrieveAll(initiativesRetriever, needles, {
-      browser,
-      fetch,
-    });
-
-    await lastValueFrom(stream.pipe(persistInitiatives()));
-
+    await runPipeline(
+      {
+        name: 'initiatives',
+        finder: initiativesFinder,
+        branches: [[initiativesRetriever, persistInitiatives()]],
+      },
+      { browser, fetch },
+    );
     await updateScraperMetadata('initiatives', true);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -285,38 +211,23 @@ async function runInitiativesPipeline(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Interest declarations pipeline
-// ---------------------------------------------------------------------------
-
 async function runInterestDeclarationsPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
-
   try {
-    const needles = await findAll(interestDeclarationsFinder, {
-      browser,
-      fetch,
-    });
-
-    if (needles.length === 0) {
-      console.log('[interestDeclarations] No deputies found, skipping');
-      await updateScraperMetadata('interestDeclarations', true);
-      return;
-    }
-
-    console.log(
-      `[interestDeclarations] Processing ${String(needles.length)} deputies`,
+    await runPipeline(
+      {
+        name: 'interestDeclarations',
+        finder: interestDeclarationsFinder,
+        branches: [
+          [
+            interestDeclarationsRetriever,
+            interestDeclarationsProcessor,
+            persistInterestDeclarations(),
+          ],
+        ] as Branch<unknown>[],
+      },
+      { browser, fetch },
     );
-
-    const stream = retrieveAll(interestDeclarationsRetriever, needles, {
-      browser,
-      fetch,
-    });
-
-    await lastValueFrom(
-      stream.pipe(interestDeclarationsProcessor, persistInterestDeclarations()),
-    );
-
     await updateScraperMetadata('interestDeclarations', true);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
