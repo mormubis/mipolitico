@@ -6,21 +6,14 @@ interface CommonOptions {
   fetch: typeof fetch;
 }
 
-type Finder = (
-  options: CommonOptions,
-) => Promisable<string | string[] | Needle[]>;
+type Finder = (options: CommonOptions) => Observable<string>;
 
-interface Needle {
+interface RetrieverOptions extends CommonOptions {
   url: string;
-  extra?: unknown;
 }
-
-type Promisable<T> = T | Promise<T>;
-
-type RetrieverOptions = CommonOptions & Needle;
 
 type Retriever<T> = (options: RetrieverOptions) => Observable<T>;
 
 type Processor<T, U = T> = OperatorFunction<T, U>;
 
-export type { Finder, Needle, Processor, Retriever };
+export type { Finder, Processor, Retriever, RetrieverOptions };
