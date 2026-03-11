@@ -57,20 +57,22 @@ provide stable child IDs.
 
 ### 1. No stable deputy identifier in the DB
 
-`Person` is deduplicated by `name` (a string). The Congress assigns each deputy
-a `codParlamentario` (an integer) that is stable across legislatures and
-uniquely identifies them on the congress website. This code is used in scraper
-URLs but never stored in the database.
+`Person` is deduplicated by `name` (a string). The Congress does not expose any
+career-stable identifier for deputies across legislatures. `codParlamentario` is
+a per-legislature integer — it appears in scraper URLs alongside `idLegislatura`
+and identifies a deputy term, not a career. It belongs on `Deputy`, not
+`Person`, and does not solve the name-collision risk on `Person`.
 
 **Risk:** Two deputies with the same name would collide into one `Person` row.
 The schema comment acknowledges this as acceptable at ~350 deputies per
-legislature. More critically, there is no way to look up a DB record from a
-scraped `codParlamentario` without doing a name-based fuzzy match.
+legislature. There is no known source for a cross-legislature stable identifier.
 
-**Recommendation:** Add `codParlamentario Int? @unique` to `Person` (or
-`Deputy`). Populate it from the `person-detail` finder which already has this
-value. This gives a stable, unambiguous join key between scraped data and DB
-records, and removes the name-collision risk.
+**Recommendation:** Add `codParlamentario Int?` to `Deputy` (not `Person`).
+Populate it from the `person-detail` retriever which already extracts it from
+the URL. This gives a stable join key within a legislature between scraped data
+and DB records, but does not resolve the cross-legislature name-collision risk
+on `Person`. Accept the name-based deduplication on `Person` as a known
+limitation with no available remedy from the source data.
 
 ### 2. `InterestDeclaration` links to `Deputy` (a term), not `Person`
 
@@ -158,12 +160,12 @@ known loss explicitly.
 
 ## Summary Table
 
-| Gap                                                     | Severity | Recommended Action                   |
-| ------------------------------------------------------- | -------- | ------------------------------------ |
-| No `codParlamentario` stored                            | High     | Add to `Person` or `Deputy`          |
-| `InterestDeclaration` → `Deputy` (term-scoped)          | —        | Correct by design                    |
-| `Vote` has no stable person identifier                  | Low      | Accept; store source ID if available |
-| `Speech.sessionId` has no referential integrity         | Low      | Accept; document for future          |
-| `Party` model unpopulated                               | Medium   | Remove or build scraper              |
-| `Initiative` ↔ `VotingSession` unlinked                | Low      | Future enrichment step               |
-| `Initiative` deduplication fails on null bulletinNumber | Medium   | Find alternative key                 |
+| Gap                                                     | Severity | Recommended Action                                                                  |
+| ------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------- |
+| No `codParlamentario` stored                            | Medium   | Add to `Deputy`; name dedup on `Person` is a known limitation with no source remedy |
+| `InterestDeclaration` → `Deputy` (term-scoped)          | —        | Correct by design                                                                   |
+| `Vote` has no stable person identifier                  | Low      | Accept; store source ID if available                                                |
+| `Speech.sessionId` has no referential integrity         | Low      | Accept; document for future                                                         |
+| `Party` model unpopulated                               | Medium   | Remove or build scraper                                                             |
+| `Initiative` ↔ `VotingSession` unlinked                | Low      | Future enrichment step                                                              |
+| `Initiative` deduplication fails on null bulletinNumber | Medium   | Find alternative key                                                                |
