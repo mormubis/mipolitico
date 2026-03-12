@@ -31,6 +31,7 @@
     "scrape:voting": "tsx src/main.ts --source=voting",
     "scrape:intervention": "tsx src/main.ts --source=intervention",
     "scrape:bureau": "tsx src/main.ts --source=bureau",
+    "scrape:parties": "tsx src/main.ts --source=parties",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:integration": "node --import tsx/esm src/test/finders.test.ts",
     "test:retrievers": "node --import tsx/esm src/test/retrievers.test.ts"

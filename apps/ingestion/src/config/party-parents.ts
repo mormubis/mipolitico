@@ -4,6 +4,9 @@
  * enter parliament after an election.
  *
  * Source: DiputadosActivos opendata, XV legislature (2023–present).
+ *
+ * Only PSOE regional branches appear under distinct shortNames in the current
+ * dataset. Other parties (PP, VOX, etc.) use a single shortName nationwide.
  */
 export const PARTY_PARENTS: Record<string, string> = {
   'PSC-PSOE': 'PSOE',
