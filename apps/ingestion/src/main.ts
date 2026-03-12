@@ -145,10 +145,7 @@ async function runPartyPipeline(): Promise<void> {
     );
 
     await lastValueFrom(
-      merge(person$, detail$).pipe(
-        partyProcessor as unknown as OperatorFunction<unknown, unknown>,
-        persistParties(),
-      ),
+      merge(person$, detail$).pipe(partyProcessor, persistParties()),
     );
 
     await updateScraperMetadata('parties', true);
