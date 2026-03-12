@@ -40,17 +40,25 @@ model Person {
 /// Data source: party.ts scraper
 model Party {
   id        String   @id @default(cuid())
-  /// Full official name of the party.
-  name      String   @unique
-  /// Optional abbreviated party name or acronym (e.g., "PSOE", "PP").
-  shortName String?
+  /// Full official name of the party (e.g. "Partido Popular"). Nullable until enriched by person-detail scraper.
+  name      String?
+  /// Abbreviated party name or acronym from opendata (e.g. "PP"). Used as the natural key.
+  shortName String   @unique
+  /// Optional reference to canonical parent party for regional branches (e.g. PSC-PSOE → PSOE).
+  parentId  String?
   /// Timestamp of record creation.
   createdAt DateTime @default(now())
   /// Timestamp of last record update.
   updatedAt DateTime @updatedAt
 
+  /// Self-relation for canonical parent party.
+  parent   Party?  @relation("PartyAffiliation", fields: [parentId], references: [id])
+  children Party[] @relation("PartyAffiliation")
+
   /// Linked entities.
-  deputies  Deputy[]
+  deputies     Deputy[]
+  speeches     Speech[]
+  organMembers OrganMember[]
 }
 
 /// Represents a person's term as a parliamentary deputy in a specific legislature.
@@ -189,6 +197,8 @@ model Speech {
   /// Optional reference to Person. Null until entity resolution matches speaker name
   /// to Person records. Some speakers may never match (committee members, external guests).
   personId      String?
+  /// Optional reference to Party. Null until entity resolution is complete.
+  partyId       String?
   /// Session identifier. Not a foreign key to VotingSession (different scraper source).
   sessionId     String
   /// Date of the parliamentary session.
@@ -217,6 +227,7 @@ model Speech {
 
   /// Linked entities.
   person        Person?  @relation(fields: [personId], references: [id])
+  party         Party?   @relation(fields: [partyId], references: [id])
 
   /// Ensures one speech record per session order. Sessions may have multiple speeches;
   /// orderInSession tracks their sequence for historical reconstruction.
@@ -235,6 +246,8 @@ model OrganMember {
   /// Optional reference to Person. Null until entity resolution matches member name
   /// to Person records. Some members may not reconcile (deceased prior members in records).
   personId    String?
+  /// Optional reference to Party. Null until entity resolution is complete.
+  partyId     String?
   /// Full name of the organ member. Denormalized for historical preservation.
   name        String
   /// Position held (e.g., "Presidente", "Vicepresidente", "Secretario", "Vocal").
@@ -257,6 +270,7 @@ model OrganMember {
 
   /// Linked entities.
   person      Person?   @relation(fields: [personId], references: [id])
+  party       Party?    @relation(fields: [partyId], references: [id])
 
   /// Ensures one appointment record per name/organ/position/start combination.
   /// Allows same person to hold multiple positions and enables re-appointment after gaps.
