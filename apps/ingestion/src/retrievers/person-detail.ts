@@ -17,6 +17,7 @@ const Schema = z.object({
   FACEBOOK: z.string().optional(),
   FECHA_NACIMIENTO: z.string().optional(),
   FORMACION: z.string(),
+  FORMACIONELECTORAL: z.string(),
   FOTO_URL: z.string(),
   GENERO: z.number(),
   GRUPO: z.string(),
@@ -34,6 +35,9 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
       const urlObj = new URL(url);
       const codParlamentario = Number(
         urlObj.searchParams.get('codParlamentario') ?? '0',
+      );
+      const FORMACIONELECTORAL = decodeURIComponent(
+        urlObj.searchParams.get('formacion') ?? '',
       );
 
       const page = await browser.newPage();
@@ -183,6 +187,7 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
           FACEBOOK,
           FECHA_NACIMIENTO,
           FORMACION,
+          FORMACIONELECTORAL,
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           FOTO_URL: FOTO_URL!,
           GENERO: 0,
