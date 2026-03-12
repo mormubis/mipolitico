@@ -11,7 +11,7 @@ and recommendations for future evolution.
 ```
 Person ──────────────── Deputy ── InterestDeclaration ─┬─ RealEstateAsset
   │                       │                             ├─ MovableAsset
-  ├─ Speech               └── Party (nullable)          ├─ Security
+  ├─ Speech               └── Party ──(parent)── Party   ├─ Security
   └─ OrganMember                                        ├─ BankAccount
                                                         ├─ ProfessionalActivity
 VotingSession ── Vote                                   └─ IncomeSource
@@ -165,6 +165,6 @@ known loss explicitly.
 | `InterestDeclaration` → `Deputy` (term-scoped)          | —        | Correct by design                                                                            |
 | `Vote` has no stable person identifier                  | Low      | Accept; store source ID if available                                                         |
 | `Speech.sessionId` has no referential integrity         | Low      | Accept; document for future                                                                  |
-| `Party` model unpopulated                               | Medium   | Remove or build scraper                                                                      |
+| `Party` model                                           | —        | Populated via party scraper; `parentId` self-relation models regional branches               |
 | `Initiative` ↔ `VotingSession` unlinked                | Low      | Future enrichment step                                                                       |
 | `Initiative` deduplication fails on null bulletinNumber | Medium   | Find alternative key                                                                         |
