@@ -20,7 +20,7 @@ function hasFormacion(input: Input): input is PersonDetailModel {
 
 export const processor: OperatorFunction<Input, PartyInput> = (source$) =>
   new Observable<PartyInput>((subscriber) => {
-    source$
+    return source$
       .pipe(
         reduce((acc, record) => {
           const shortName = record.FORMACIONELECTORAL.trim();
