@@ -133,3 +133,11 @@ export const InterestDeclarationInputSchema = z.object({
 export type InterestDeclarationInput = z.infer<
   typeof InterestDeclarationInputSchema
 >;
+
+// Input schema for party scraper output
+export const PartyInputSchema = z.object({
+  name: z.string().optional(),
+  shortName: z.string(),
+  parentShortName: z.string().optional(),
+});
+export type PartyInput = z.infer<typeof PartyInputSchema>;
