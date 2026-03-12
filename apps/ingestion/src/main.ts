@@ -121,13 +121,16 @@ async function runPersonPipeline(): Promise<void> {
   }
 }
 
+// runPartyPipeline does not use runPipeline() because it merges two separate
+// finder streams (person + person-detail) into a single party processor.
+// runPipeline() only supports one finder per pipeline entry.
 async function runPartyPipeline(): Promise<void> {
   const browser = await launch({ headless: true });
   try {
     const options: CommonOptions = { browser, fetch };
 
-    const personUrls$ = personFinder(options).pipe(share());
-    const detailUrls$ = personDetailFinder(options).pipe(share());
+    const personUrls$ = personFinder(options);
+    const detailUrls$ = personDetailFinder(options);
 
     const person$ = personUrls$.pipe(
       mergeMap((url: string) =>
