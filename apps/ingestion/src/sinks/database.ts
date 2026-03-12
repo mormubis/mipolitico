@@ -3,6 +3,7 @@ import {
   upsertInitiatives,
   upsertInterestDeclaration,
   upsertOrganMembers,
+  upsertParties,
   upsertSpeeches,
   upsertVotingRecords,
 } from '@congress/database';
@@ -243,6 +244,52 @@ export function persistInterestDeclarations(): OperatorFunction<
               subscriber.next({
                 source: 'interestDeclarations',
                 batches: totalSuccess + totalSkipped,
+                totalSuccess,
+                totalSkipped,
+              });
+              subscriber.complete();
+            },
+            error: (err: Error) => {
+              subscriber.error(err);
+            },
+          });
+        }),
+    );
+}
+
+/**
+ * RxJS operator that buffers party records and persists to database.
+ */
+export function persistParties(): OperatorFunction<unknown, PersistResult> {
+  let batches = 0;
+  let totalSuccess = 0;
+  let totalSkipped = 0;
+
+  return (source: Observable<unknown>) =>
+    source.pipe(
+      bufferCount(BATCH_SIZE),
+      mergeMap(async (batch) => {
+        const result = await upsertParties(batch);
+        batches++;
+        totalSuccess += result.success;
+        totalSkipped += result.skipped;
+        console.log(
+          `[parties] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
+        );
+        return result;
+      }),
+      finalize(() => {
+        console.log(
+          `[parties] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
+        );
+      }),
+      (obs) =>
+        new Observable<PersistResult>((subscriber) => {
+          obs.subscribe({
+            complete: () => {
+              subscriber.next({
+                source: 'parties',
+                batches,
                 totalSuccess,
                 totalSkipped,
               });

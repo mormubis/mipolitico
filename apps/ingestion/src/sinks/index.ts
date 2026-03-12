@@ -3,6 +3,7 @@ export {
   persistInitiatives,
   persistInterestDeclarations,
   persistOrganMembers,
+  persistParties,
   persistSpeeches,
   persistVotes,
   type PersistResult,
