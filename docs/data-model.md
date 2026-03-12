@@ -57,22 +57,21 @@ provide stable child IDs.
 
 ### 1. No stable deputy identifier in the DB
 
-`Person` is deduplicated by `name` (a string). The Congress does not expose any
-career-stable identifier for deputies across legislatures. `codParlamentario` is
-a per-legislature integer — it appears in scraper URLs alongside `idLegislatura`
-and identifies a deputy term, not a career. It belongs on `Deputy`, not
-`Person`, and does not solve the name-collision risk on `Person`.
+`Person` is deduplicated by `name` (a string). The Congress opendata portal does
+not expose any stable identifier for deputies — neither career-wide nor
+per-legislature. `codParlamentario` appears in the `searchDiputados` response,
+but that is an undocumented internal search API intercepted via Playwright, not
+a published opendata endpoint. It carries no stability guarantee and should not
+be stored or relied upon.
 
 **Risk:** Two deputies with the same name would collide into one `Person` row.
 The schema comment acknowledges this as acceptable at ~350 deputies per
-legislature. There is no known source for a cross-legislature stable identifier.
+legislature. There is no available remedy from the source data.
 
-**Recommendation:** Add `codParlamentario Int?` to `Deputy` (not `Person`).
-Populate it from the `person-detail` retriever which already extracts it from
-the URL. This gives a stable join key within a legislature between scraped data
-and DB records, but does not resolve the cross-legislature name-collision risk
-on `Person`. Accept the name-based deduplication on `Person` as a known
-limitation with no available remedy from the source data.
+**Recommendation:** Accept name-based deduplication on `Person` as a known
+limitation. Do not store `codParlamentario`. If a name collision is ever
+detected, it must be handled manually or via an additional disambiguating field
+(e.g. constituency + legislature).
 
 ### 2. `InterestDeclaration` links to `Deputy` (a term), not `Person`
 
@@ -160,12 +159,12 @@ known loss explicitly.
 
 ## Summary Table
 
-| Gap                                                     | Severity | Recommended Action                                                                  |
-| ------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------- |
-| No `codParlamentario` stored                            | Medium   | Add to `Deputy`; name dedup on `Person` is a known limitation with no source remedy |
-| `InterestDeclaration` → `Deputy` (term-scoped)          | —        | Correct by design                                                                   |
-| `Vote` has no stable person identifier                  | Low      | Accept; store source ID if available                                                |
-| `Speech.sessionId` has no referential integrity         | Low      | Accept; document for future                                                         |
-| `Party` model unpopulated                               | Medium   | Remove or build scraper                                                             |
-| `Initiative` ↔ `VotingSession` unlinked                | Low      | Future enrichment step                                                              |
-| `Initiative` deduplication fails on null bulletinNumber | Medium   | Find alternative key                                                                |
+| Gap                                                     | Severity | Recommended Action                                                                           |
+| ------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| No stable deputy identifier available                   | —        | `codParlamentario` is internal API only; name dedup on `Person` accepted as known limitation |
+| `InterestDeclaration` → `Deputy` (term-scoped)          | —        | Correct by design                                                                            |
+| `Vote` has no stable person identifier                  | Low      | Accept; store source ID if available                                                         |
+| `Speech.sessionId` has no referential integrity         | Low      | Accept; document for future                                                                  |
+| `Party` model unpopulated                               | Medium   | Remove or build scraper                                                                      |
+| `Initiative` ↔ `VotingSession` unlinked                | Low      | Future enrichment step                                                                       |
+| `Initiative` deduplication fails on null bulletinNumber | Medium   | Find alternative key                                                                         |
