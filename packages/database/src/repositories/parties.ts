@@ -26,10 +26,8 @@ export async function upsertParties(
     for (const data of validRecords) {
       await tx.party.upsert({
         where: { shortName: data.shortName },
-        create: { shortName: data.shortName, name: data.name ?? null },
-        // undefined is intentional: Prisma skips undefined fields, preserving
-        // an existing enriched name rather than overwriting it with null.
-        update: { name: data.name ?? undefined },
+        create: { shortName: data.shortName, name: data.name },
+        update: { name: data.name },
       });
       success++;
     }

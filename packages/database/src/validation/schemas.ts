@@ -136,8 +136,8 @@ export type InterestDeclarationInput = z.infer<
 
 // Input schema for party scraper output
 export const PartyInputSchema = z.object({
-  name: z.string().optional(),
-  shortName: z.string(),
+  name: z.string().min(1),
+  shortName: z.string().min(1),
   parentShortName: z.string().optional(),
 });
 export type PartyInput = z.infer<typeof PartyInputSchema>;

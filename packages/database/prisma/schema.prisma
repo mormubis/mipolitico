@@ -40,8 +40,8 @@ model Person {
 /// Data source: party.ts scraper
 model Party {
   id        String   @id @default(cuid())
-  /// Full official name of the party (e.g. "Partido Popular"). Nullable until enriched by person-detail scraper.
-  name      String?
+  /// Full official name of the party (e.g. "Partido Popular").
+  name      String
   /// Abbreviated party name or acronym from opendata (e.g. "PP"). Used as the natural key.
   shortName String   @unique
   /// Optional reference to canonical parent party for regional branches (e.g. PSC-PSOE → PSOE).

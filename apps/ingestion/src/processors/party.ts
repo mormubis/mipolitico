@@ -14,6 +14,14 @@ interface PersonDetailModel {
 }
 type Input = PersonModel | PersonDetailModel;
 
+// Intermediate accumulator type — entries without a name are incomplete and
+// will not be emitted. name is required on PartyInput (Party.name is non-nullable).
+interface PartialParty {
+  shortName: string;
+  name?: string;
+  parentShortName?: string;
+}
+
 function hasFormacion(input: Input): input is PersonDetailModel {
   return 'FORMACION' in input && typeof input.FORMACION === 'string';
 }
@@ -28,7 +36,6 @@ export const processor: OperatorFunction<Input, PartyInput> = (source$) =>
 
           const existing = acc.get(shortName) ?? {
             shortName,
-            name: undefined as string | undefined,
             parentShortName: PARTY_PARENTS[shortName],
           };
 
@@ -38,12 +45,16 @@ export const processor: OperatorFunction<Input, PartyInput> = (source$) =>
 
           acc.set(shortName, existing);
           return acc;
-        }, new Map<string, PartyInput>()),
+        }, new Map<string, PartialParty>()),
       )
       .subscribe({
         next: (map) => {
           for (const entry of map.values()) {
-            subscriber.next(entry);
+            // Only emit complete entries — defer parties without a full name
+            // to the next run when person-detail data is available.
+            if (entry.name) {
+              subscriber.next(entry as PartyInput);
+            }
           }
           subscriber.complete();
         },
