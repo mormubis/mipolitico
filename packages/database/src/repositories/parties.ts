@@ -27,6 +27,8 @@ export async function upsertParties(
       await tx.party.upsert({
         where: { shortName: data.shortName },
         create: { shortName: data.shortName, name: data.name ?? null },
+        // undefined is intentional: Prisma skips undefined fields, preserving
+        // an existing enriched name rather than overwriting it with null.
         update: { name: data.name ?? undefined },
       });
       success++;
@@ -40,7 +42,12 @@ export async function upsertParties(
       const parent = await tx.party.findUnique({
         where: { shortName: data.parentShortName },
       });
-      if (!parent) continue;
+      if (!parent) {
+        console.warn(
+          `[parties] Could not resolve parentShortName "${data.parentShortName}" for "${data.shortName}" — parent not found in DB`,
+        );
+        continue;
+      }
       await tx.party.update({
         where: { shortName: data.shortName },
         data: { parentId: parent.id },
