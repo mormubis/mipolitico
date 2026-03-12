@@ -9,14 +9,17 @@ import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
 import { finder as interestDeclarationsFinder } from './finders/interest-declarations.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
+import { finder as personDetailFinder } from './finders/person-detail.ts';
 import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
 import { processor as interestDeclarationsProcessor } from './processors/interest-declarations.ts';
+import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
 import { retriever as interestDeclarationsRetriever } from './retrievers/interest-declarations.ts';
 import { retriever as interventionRetriever } from './retrievers/intervention.ts';
+import { retriever as personDetailRetriever } from './retrievers/person-detail.ts';
 import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';
 import {
@@ -24,6 +27,7 @@ import {
   persistInitiatives,
   persistInterestDeclarations,
   persistOrganMembers,
+  persistParties,
   persistSpeeches,
   persistVotes,
 } from './sinks/index.ts';
@@ -110,6 +114,47 @@ async function runPersonPipeline(): Promise<void> {
     await updateScraperMetadata('deputies', false, message).catch(
       console.error,
     );
+    throw error;
+  } finally {
+    await browser.close();
+    await prisma.$disconnect();
+  }
+}
+
+async function runPartyPipeline(): Promise<void> {
+  const browser = await launch({ headless: true });
+  try {
+    const options: CommonOptions = { browser, fetch };
+
+    const personUrls$ = personFinder(options).pipe(share());
+    const detailUrls$ = personDetailFinder(options).pipe(share());
+
+    const person$ = personUrls$.pipe(
+      mergeMap((url: string) =>
+        personRetriever({ url, ...options }).pipe(
+          retry({ delay: 15 * 1000, count: 1 }),
+        ),
+      ),
+    );
+    const detail$ = detailUrls$.pipe(
+      mergeMap((url: string) =>
+        personDetailRetriever({ url, ...options }).pipe(
+          retry({ delay: 15 * 1000, count: 1 }),
+        ),
+      ),
+    );
+
+    await lastValueFrom(
+      merge(person$, detail$).pipe(
+        partyProcessor as unknown as OperatorFunction<unknown, unknown>,
+        persistParties(),
+      ),
+    );
+
+    await updateScraperMetadata('parties', true);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    await updateScraperMetadata('parties', false, message).catch(console.error);
     throw error;
   } finally {
     await browser.close();
@@ -254,6 +299,7 @@ const pipelines: Record<string, () => Promise<void>> = {
   initiatives: runInitiativesPipeline,
   interestDeclarations: runInterestDeclarationsPipeline,
   intervention: runInterventionPipeline,
+  parties: runPartyPipeline,
   person: runPersonPipeline,
   voting: runVotingPipeline,
 };
@@ -291,6 +337,7 @@ export {
   runInitiativesPipeline,
   runInterestDeclarationsPipeline,
   runInterventionPipeline,
+  runPartyPipeline,
   runPersonPipeline,
   runVotingPipeline,
 };

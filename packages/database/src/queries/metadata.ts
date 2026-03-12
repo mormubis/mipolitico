@@ -6,6 +6,7 @@ export type ScraperType =
   | 'initiatives'
   | 'interestDeclarations'
   | 'intervention'
+  | 'parties'
   | 'voting';
 
 export async function getLastSuccessfulRun(
