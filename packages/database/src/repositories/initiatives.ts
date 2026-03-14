@@ -90,10 +90,12 @@ export async function upsertInitiatives(
     }
   }
 
-  const parliamentary = validRecords.filter(isParliamentaryBill);
-  const approved = validRecords.filter(
-    (r): r is ApprovedLawInput => !isParliamentaryBill(r),
-  );
+  const parliamentary: ParliamentaryInitiativeInput[] = [];
+  const approved: ApprovedLawInput[] = [];
+  for (const r of validRecords) {
+    if (isParliamentaryBill(r)) parliamentary.push(r);
+    else approved.push(r);
+  }
 
   // First pass: upsert parliamentary bills by expedienteNumero
   await prisma.$transaction(async (tx) => {
