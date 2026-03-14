@@ -8,7 +8,9 @@ const finder: Finder = ({ browser }) =>
       const page = await browser.newPage();
 
       try {
-        await page.goto('https://www.congreso.es/es/opendata/diputados');
+        await page.goto('https://www.congreso.es/es/opendata/diputados', {
+          waitUntil: 'networkidle',
+        });
 
         const href = await page
           .locator('a[href*="docacteco"][href$="json"]')

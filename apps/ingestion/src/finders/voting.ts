@@ -15,14 +15,15 @@ const finder: Finder = ({ browser }) =>
         const sections = await page.locator('h4[role="button"]').all();
         for (const section of sections) {
           await section.click();
-          await page.waitForTimeout(300);
+          await page.waitForLoadState('networkidle');
         }
 
         const jsonLinks = await page.locator('a[href$=".json"]').all();
 
         for (const link of jsonLinks) {
           const href = await link.getAttribute('href');
-          if (href) subscriber.next(href);
+          if (href)
+            {subscriber.next(new URL(href, 'https://www.congreso.es').href);}
         }
 
         subscriber.complete();

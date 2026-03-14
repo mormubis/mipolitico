@@ -10,7 +10,6 @@ interface DeputyItem {
   codParlamentario: number;
   fchAlta: string;
   fchBaja: string;
-  formacion: string;
   genero: number;
   grupo: string;
   idCircunscripcion: number;
@@ -25,7 +24,9 @@ const finder: Finder = ({ browser }) =>
       const page = await browser.newPage();
 
       try {
-        await page.goto('https://www.congreso.es/es/opendata/diputados');
+        await page.goto('https://www.congreso.es/es/opendata/diputados', {
+          waitUntil: 'networkidle',
+        });
 
         const searchHref = await page
           .locator('a[href*="busqueda-de-diputados"][href*="statusOpendata"]')
@@ -57,7 +58,7 @@ const finder: Finder = ({ browser }) =>
 
         for (const item of json.data) {
           subscriber.next(
-            `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}&mostrarAgenda=false&formacion=${encodeURIComponent(item.formacion)}`,
+            `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}`,
           );
         }
 

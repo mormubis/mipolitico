@@ -8,19 +8,23 @@ const finder: Finder = ({ browser }) =>
       const page = await browser.newPage();
 
       try {
-        await page.goto('https://www.congreso.es/es/opendata/organos');
+        await page.goto('https://www.congreso.es/es/opendata/organos', {
+          waitUntil: 'networkidle',
+        });
 
         await Promise.all([
-          page.waitForEvent('load'),
+          page.waitForLoadState('networkidle'),
           page.getByText('Exportar datos composición').first().click(),
         ]);
 
-        const [request] = await Promise.all([
-          page.waitForEvent('requestfinished', { timeout: 3000 }),
+        const [response] = await Promise.all([
+          page.waitForResponse(
+            (r) => r.url().includes('composicion') && r.status() === 200,
+          ),
           page.getByText('Composición histórica').first().click(),
         ]);
 
-        subscriber.next(request.url());
+        subscriber.next(response.url());
         subscriber.complete();
       } catch (cause) {
         subscriber.error(cause);

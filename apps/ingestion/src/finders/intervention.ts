@@ -78,7 +78,6 @@ const finder: Finder = ({ browser, fetch }) =>
 
         const rows = (await response.json()) as BulkInterventionRow[];
         const seen = new Set<string>();
-        let emitted = 0;
 
         for (const row of rows) {
           if (!row.ENLACETEXTOINTEGRO) continue;
@@ -87,12 +86,8 @@ const finder: Finder = ({ browser, fetch }) =>
 
           seen.add(row.ENLACETEXTOINTEGRO);
           subscriber.next(row.ENLACETEXTOINTEGRO);
-          emitted++;
         }
 
-        console.log(
-          `[intervention] Emitted ${String(emitted)} unique session URLs`,
-        );
         subscriber.complete();
       } catch (cause) {
         subscriber.error(cause);

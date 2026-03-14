@@ -8,7 +8,9 @@ const finder: Finder = ({ browser }) =>
       const page = await browser.newPage();
 
       try {
-        await page.goto('https://www.congreso.es/es/opendata/diputados');
+        await page.goto('https://www.congreso.es/es/opendata/diputados', {
+          waitUntil: 'networkidle',
+        });
 
         const link = await page
           .locator('a[href*=DiputadosActivos][href$=json]')
@@ -17,7 +19,7 @@ const finder: Finder = ({ browser }) =>
         if (!link) {
           subscriber.error(
             new Error(
-              'Could not find link to active deputies JSON data on the congress page',
+              '[person] Could not find link to active deputies JSON data on the congress page',
             ),
           );
           return;
