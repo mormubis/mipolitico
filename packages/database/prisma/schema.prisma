@@ -312,31 +312,40 @@ model ScraperMetadata {
 ///
 /// Data source: initiatives.ts scraper (Iniciativas JSON)
 model Initiative {
-  id             String    @id @default(cuid())
+  id                   String    @id @default(cuid())
   /// Legislature number for historical partitioning.
-  legislature    Int
-  /// Initiative type (e.g., "Proyecto de Ley", "Real Decreto-ley", "Proposición de Ley").
-  tipo           String
-  /// Law number (NUMERO_LEY). Null for non-enacted initiatives.
-  number         String?
-  /// Full title of the initiative (TITULO_LEY).
-  title          String
-  /// Official gazette bulletin number (NUMERO_BOLETIN). Used as natural deduplication key.
-  bulletinNumber String?
-  /// Date of official gazette publication (FECHA_BOLETIN).
-  bulletinDate   DateTime?
-  /// Date the initiative was enacted into law (FECHA_LEY). Null if not yet enacted.
-  enactedDate    DateTime?
-  /// URL to the official PDF on BOE or congreso.es.
-  pdfUrl         String?
+  legislature          Int
+  /// Initiative type (e.g. "Proyecto de ley", "Leyes", "Reales decretos").
+  tipo                 String
+  /// Initiative title. OBJETO for parliamentary bills, TITULO_LEY for approved laws.
+  title                String
+  /// Parliamentary expedient number (e.g. "121/000009/0000").
+  /// Present for ProyectosDeLey, ProposicionesDeLey, PropuestasDeReforma.
+  /// Null for Reales decretos (no parliamentary process).
+  expedienteNumero     String?
+  /// BOE bulletin number. Present for Reales decretos and enacted laws.
+  /// Populated via title-match enrichment for parliamentary bills.
+  bulletinNumber       String?
+  /// Date of official gazette publication.
+  bulletinDate         DateTime?
+  /// Law number (e.g. "9" for Ley 9/2025). Null until enriched.
+  number               String?
+  /// Date the initiative was enacted into law. Null until enriched.
+  enactedDate          DateTime?
+  /// URL to the official PDF. Null until enriched.
+  pdfUrl               String?
+  /// Current parliamentary status (e.g. "Cerrado", "Comisión de Justicia\nInforme").
+  /// Null for Reales decretos.
+  situacion            String?
+  /// Parliamentary outcome (e.g. "Aprobado con modificaciones\n16/12/2025").
+  /// Null for Reales decretos.
+  resultadoTramitacion String?
   /// Timestamp of record creation.
-  createdAt      DateTime  @default(now())
+  createdAt            DateTime  @default(now())
   /// Timestamp of last record update.
-  updatedAt      DateTime  @updatedAt
+  updatedAt            DateTime  @updatedAt
 
-  /// Natural deduplication key. Bulletin number is the most stable identifier when
-  /// available. Non-enacted initiatives without a bulletin number are edge cases
-  /// and accepted as a known limitation.
+  @@unique([legislature, expedienteNumero])
   @@unique([legislature, bulletinNumber])
 }
 
