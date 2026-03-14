@@ -3,7 +3,15 @@ import {
   prisma,
   updateScraperMetadata,
 } from '@congress/database';
-import { filter, lastValueFrom, merge, mergeMap, retry, share } from 'rxjs';
+import {
+  filter,
+  lastValueFrom,
+  map,
+  merge,
+  mergeMap,
+  retry,
+  share,
+} from 'rxjs';
 
 import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
@@ -32,48 +40,30 @@ import {
   persistVotes,
 } from './sinks/index.ts';
 
-import type { CommonOptions, Finder, Retriever } from './types.ts';
-import type { OperatorFunction } from 'rxjs';
+import type {
+  CommonOptions,
+  Finder,
+  Retriever,
+  TaggedData,
+  TaggedUrl,
+} from './types.ts';
+import type { Observable, OperatorFunction } from 'rxjs';
 
-type Branch<T> = [Retriever<T>, ...OperatorFunction<T, unknown>[]];
+// ---------------------------------------------------------------------------
+// Registry types
+// ---------------------------------------------------------------------------
 
-interface PipelineEntry {
+interface SourceEntry<T> {
   name: string;
   finder: Finder;
-  branches: Branch<unknown>[];
+  retriever: Retriever<T>;
   urlFilter?: (url: string) => boolean;
 }
 
-async function runPipeline(
-  entry: PipelineEntry,
-  options: CommonOptions,
-): Promise<void> {
-  const urlFilter = entry.urlFilter;
-  const base$ = entry.finder(options);
-  const urls$ = urlFilter
-    ? base$.pipe(filter(urlFilter), share())
-    : base$.pipe(share());
-
-  if (entry.branches.length === 0) {
-    await lastValueFrom(urls$, { defaultValue: undefined });
-    return;
-  }
-
-  const branchStreams = entry.branches.map(([retriever, ...ops]) => {
-    let stream: ReturnType<typeof urls$.pipe> = urls$.pipe(
-      mergeMap((url: string) =>
-        retriever({ url, ...options }).pipe(
-          retry({ delay: 15 * 1000, count: 1 }),
-        ),
-      ),
-    );
-    for (const op of ops) {
-      stream = stream.pipe(op);
-    }
-    return stream;
-  });
-
-  await lastValueFrom(merge(...branchStreams));
+interface PipelineEntry<T, U> {
+  sources: string[];
+  processor?: OperatorFunction<T, U>;
+  sink: OperatorFunction<U, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,189 +84,142 @@ async function buildVotingFilter(): Promise<(url: string) => boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline runners
+// Orchestrator
 // ---------------------------------------------------------------------------
 
-async function runPersonPipeline(): Promise<void> {
-  const browser = await launch({ headless: true });
-  try {
-    await runPipeline(
-      {
-        name: 'deputies',
-        finder: personFinder,
-        branches: [[personRetriever, persistDeputies()]],
-      },
-      { browser, fetch },
-    );
-    await updateScraperMetadata('deputies', true);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('deputies', false, message).catch(
-      console.error,
-    );
-    throw error;
-  } finally {
-    await browser.close();
-    await prisma.$disconnect();
-  }
-}
+async function runAll(source?: string): Promise<void> {
+  const votingFilter = await buildVotingFilter();
 
-// runPartyPipeline does not use runPipeline() because it merges two separate
-// finder streams (person + person-detail) into a single party processor.
-// runPipeline() only supports one finder per pipeline entry.
-async function runPartyPipeline(): Promise<void> {
+  const SOURCES: SourceEntry<unknown>[] = [
+    { name: 'person', finder: personFinder, retriever: personRetriever },
+    {
+      name: 'person-detail',
+      finder: personDetailFinder,
+      retriever: personDetailRetriever,
+    },
+    {
+      name: 'voting',
+      finder: votingFinder,
+      retriever: votingRetriever,
+      urlFilter: votingFilter,
+    },
+    { name: 'bureau', finder: bureauFinder, retriever: bureauRetriever },
+    {
+      name: 'intervention',
+      finder: interventionFinder,
+      retriever: interventionRetriever,
+    },
+    {
+      name: 'initiatives',
+      finder: initiativesFinder,
+      retriever: initiativesRetriever,
+    },
+    {
+      name: 'interest-declarations',
+      finder: interestDeclarationsFinder,
+      retriever: interestDeclarationsRetriever,
+    },
+  ];
+
+  const PIPELINES: PipelineEntry<unknown, unknown>[] = [
+    { sources: ['person'], sink: persistDeputies() },
+    {
+      sources: ['person', 'person-detail'],
+      processor: partyProcessor as OperatorFunction<unknown, unknown>,
+      sink: persistParties(),
+    },
+    { sources: ['voting'], sink: persistVotes() },
+    { sources: ['bureau'], sink: persistOrganMembers() },
+    { sources: ['intervention'], sink: persistSpeeches() },
+    { sources: ['initiatives'], sink: persistInitiatives() },
+    {
+      sources: ['interest-declarations'],
+      processor: interestDeclarationsProcessor as OperatorFunction<
+        unknown,
+        unknown
+      >,
+      sink: persistInterestDeclarations(),
+    },
+  ];
+
+  // Filter registry when --source is provided
+  const activeSources = source
+    ? SOURCES.filter((s) => s.name === source)
+    : SOURCES;
+
+  const activePipelines = source
+    ? PIPELINES.filter((p) => p.sources.includes(source))
+    : PIPELINES;
+
+  const activeSourceNames = new Set(activeSources.map((s) => s.name));
+
+  if (activeSources.length === 0) {
+    console.error(
+      `[main] Unknown source: "${source ?? ''}". Valid: ${SOURCES.map((s) => s.name).join(', ')}`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const browser = await launch({ headless: true });
   try {
     const options: CommonOptions = { browser, fetch };
 
-    const personUrls$ = personFinder(options);
-    const detailUrls$ = personDetailFinder(options);
-
-    const person$ = personUrls$.pipe(
-      mergeMap((url: string) =>
-        personRetriever({ url, ...options }).pipe(
-          retry({ delay: 15 * 1000, count: 1 }),
+    // Step 1: Build shared tagged URL pool
+    const urls$ = merge(
+      ...(activeSources.map((entry) =>
+        entry.finder(options).pipe(
+          filter((url) => (entry.urlFilter ? entry.urlFilter(url) : true)),
+          map((url): TaggedUrl => ({ source: entry.name, url })),
         ),
-      ),
-    );
-    const detail$ = detailUrls$.pipe(
-      mergeMap((url: string) =>
-        personDetailRetriever({ url, ...options }).pipe(
-          retry({ delay: 15 * 1000, count: 1 }),
-        ),
-      ),
-    );
+      ) as [Observable<TaggedUrl>, ...Observable<TaggedUrl>[]]),
+    ).pipe(share());
 
+    // Step 2: Build shared tagged data pool
+    const data$ = merge(
+      ...(activeSources.map((entry) =>
+        urls$.pipe(
+          filter(({ source }) => source === entry.name),
+          mergeMap(({ url }) =>
+            entry.retriever({ url, ...options }).pipe(
+              retry({ delay: 15 * 1000, count: 1 }),
+              map((data): TaggedData => ({ source: entry.name, data })),
+            ),
+          ),
+        ),
+      ) as [Observable<TaggedData>, ...Observable<TaggedData>[]]),
+    ).pipe(share());
+
+    // Step 3: Build pipeline streams from registry
+    const pipelineStreams = activePipelines
+      .filter((p) => p.sources.every((s) => activeSourceNames.has(s)))
+      .map((entry) => {
+        const filtered$ = data$.pipe(
+          filter(({ source }) => entry.sources.includes(source)),
+          map(({ data }) => data),
+        );
+        const processed$ = entry.processor
+          ? filtered$.pipe(entry.processor)
+          : filtered$;
+        return processed$.pipe(entry.sink);
+      });
+
+    if (pipelineStreams.length === 0) {
+      console.warn('[main] No active pipelines for the given source(s)');
+      return;
+    }
+
+    // Step 4: Run all pipeline streams concurrently
     await lastValueFrom(
-      merge(person$, detail$).pipe(partyProcessor, persistParties()),
+      merge(
+        ...(pipelineStreams as [Observable<unknown>, ...Observable<unknown>[]]),
+      ),
     );
 
-    await updateScraperMetadata('parties', true);
+    await updateScraperMetadata('deputies', true);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('parties', false, message).catch(console.error);
-    throw error;
-  } finally {
-    await browser.close();
-    await prisma.$disconnect();
-  }
-}
-
-async function runVotingPipeline(): Promise<void> {
-  const browser = await launch({ headless: true });
-  try {
-    const urlFilter = await buildVotingFilter();
-    await runPipeline(
-      {
-        name: 'voting',
-        finder: votingFinder,
-        branches: [[votingRetriever, persistVotes()]],
-        urlFilter,
-      },
-      { browser, fetch },
-    );
-    await updateScraperMetadata('voting', true);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('voting', false, message).catch(console.error);
-    throw error;
-  } finally {
-    await browser.close();
-    await prisma.$disconnect();
-  }
-}
-
-async function runBureauPipeline(): Promise<void> {
-  const browser = await launch({ headless: true });
-  try {
-    await runPipeline(
-      {
-        name: 'bureau',
-        finder: bureauFinder,
-        branches: [[bureauRetriever, persistOrganMembers()]],
-      },
-      { browser, fetch },
-    );
-    await updateScraperMetadata('bureau', true);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('bureau', false, message).catch(console.error);
-    throw error;
-  } finally {
-    await browser.close();
-    await prisma.$disconnect();
-  }
-}
-
-async function runInterventionPipeline(): Promise<void> {
-  const browser = await launch({ headless: true });
-  try {
-    await runPipeline(
-      {
-        name: 'intervention',
-        finder: interventionFinder,
-        branches: [[interventionRetriever, persistSpeeches()]],
-      },
-      { browser, fetch },
-    );
-    await updateScraperMetadata('intervention', true);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('intervention', false, message).catch(
-      console.error,
-    );
-    throw error;
-  } finally {
-    await browser.close();
-    await prisma.$disconnect();
-  }
-}
-
-async function runInitiativesPipeline(): Promise<void> {
-  const browser = await launch({ headless: true });
-  try {
-    await runPipeline(
-      {
-        name: 'initiatives',
-        finder: initiativesFinder,
-        branches: [[initiativesRetriever, persistInitiatives()]],
-      },
-      { browser, fetch },
-    );
-    await updateScraperMetadata('initiatives', true);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('initiatives', false, message).catch(
-      console.error,
-    );
-    throw error;
-  } finally {
-    await browser.close();
-    await prisma.$disconnect();
-  }
-}
-
-async function runInterestDeclarationsPipeline(): Promise<void> {
-  const browser = await launch({ headless: true });
-  try {
-    await runPipeline(
-      {
-        name: 'interestDeclarations',
-        finder: interestDeclarationsFinder,
-        branches: [
-          [
-            interestDeclarationsRetriever,
-            interestDeclarationsProcessor,
-            persistInterestDeclarations(),
-          ],
-        ] as Branch<unknown>[],
-      },
-      { browser, fetch },
-    );
-    await updateScraperMetadata('interestDeclarations', true);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('interestDeclarations', false, message).catch(
+    await updateScraperMetadata('deputies', false, message).catch(
       console.error,
     );
     throw error;
@@ -294,50 +237,9 @@ const sourceArg = process.argv
   .find((arg) => arg.startsWith('--source='))
   ?.replace('--source=', '');
 
-const pipelines: Record<string, () => Promise<void>> = {
-  bureau: runBureauPipeline,
-  initiatives: runInitiativesPipeline,
-  interestDeclarations: runInterestDeclarationsPipeline,
-  intervention: runInterventionPipeline,
-  parties: runPartyPipeline,
-  person: runPersonPipeline,
-  voting: runVotingPipeline,
-};
-
-async function main(): Promise<void> {
-  if (!sourceArg || sourceArg === 'all') {
-    console.log('[main] Running all pipelines sequentially');
-    for (const [name, run] of Object.entries(pipelines)) {
-      console.log(`[main] Starting ${name} pipeline`);
-      await run();
-      console.log(`[main] Finished ${name} pipeline`);
-    }
-    return;
-  }
-
-  const run = pipelines[sourceArg];
-  if (!run) {
-    console.error(
-      `[main] Unknown source: "${sourceArg}". Valid: ${Object.keys(pipelines).join(', ')}`,
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  await run();
-}
-
-void main().catch((error: unknown) => {
+void runAll(sourceArg).catch((error: unknown) => {
   console.error('[main] Fatal error:', error);
   process.exitCode = 1;
 });
 
-export {
-  runBureauPipeline,
-  runInitiativesPipeline,
-  runInterestDeclarationsPipeline,
-  runInterventionPipeline,
-  runPartyPipeline,
-  runPersonPipeline,
-  runVotingPipeline,
-};
+export { runAll };
