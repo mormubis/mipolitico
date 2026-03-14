@@ -68,6 +68,9 @@ export const ParliamentaryInitiativeSchema = z.object({
   OBJETO: z.string(),
   SITUACIONACTUAL: z.string().optional(),
   RESULTADOTRAMITACION: z.string().optional(),
+  // FECHAPRESENTACION is validated but not stored — the Initiative model does
+  // not have a presentedDate field. Add one if parliamentary submission dates
+  // become relevant for analytics.
   FECHAPRESENTACION: z.string().optional(),
 });
 export type ParliamentaryInitiativeInput = z.infer<

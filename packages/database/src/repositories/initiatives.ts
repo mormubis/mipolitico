@@ -163,7 +163,7 @@ export async function upsertInitiatives(
   // parliamentary bills to populate bulletinNumber, number, enactedDate, pdfUrl.
   // Reales decretos are skipped — they have no parliamentary counterpart.
   const enrichable = approved.filter(
-    (a) => a.TIPO === 'Leyes' || a.TIPO === 'Leyes organicas',
+    (a) => a.TIPO === 'Leyes' || a.TIPO === 'Leyes orgánicas',
   );
 
   if (enrichable.length > 0) {

@@ -306,10 +306,13 @@ async function main(): Promise<void> {
           typeof rec.TIPO === 'string' && rec.TIPO.length > 0,
           'TIPO should be a non-empty string',
         );
+        // Records are either ParliamentaryInitiativeInput (has OBJETO) or
+        // ApprovedLawInput (has TITULO_LEY) — check the union-level invariant.
         assert(
           'initiatives',
-          typeof rec.TITULO_LEY === 'string' && rec.TITULO_LEY.length > 0,
-          'TITULO_LEY should be a non-empty string',
+          (typeof rec.OBJETO === 'string' && rec.OBJETO.length > 0) ||
+            (typeof rec.TITULO_LEY === 'string' && rec.TITULO_LEY.length > 0),
+          'record should have either OBJETO (parliamentary) or TITULO_LEY (approved law)',
         );
       }
     }
