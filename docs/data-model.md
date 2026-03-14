@@ -95,11 +95,9 @@ string) and `deputySeat` (a seat number). Neither is a stable identifier: names
 change format across data sources, and seat numbers are re-assigned each
 legislature.
 
-**Recommendation:** Store `deputyGroup` (already present) and additionally any
-stable identifier that the source provides at ingestion time — for example, the
-`codParlamentario` if it appears in the voting JSON. If not available in the
-source, accept the current design. Do not add a FK to `Deputy` or `Person`
-unless the source data provides a reliable join key.
+**Recommendation:** Accept the current design. The voting JSON does not provide
+a stable deputy identifier beyond name and seat number. Do not add a FK to
+`Deputy` or `Person` unless the source data provides a reliable join key.
 
 ### 4. `Speech.sessionId` is a freeform string with no referential integrity
 
@@ -117,18 +115,19 @@ identifier (e.g., a plenary session number), add a `plenarySessionId String?`
 field to both `Speech` and `VotingSession` to enable future joins. For now,
 document this gap and accept it.
 
-### 5. `Party` model is unpopulated
+### 5. `Party` model — resolved
 
-`Deputy.partyId` is always `null` — there is no party scraper. `OrganMember` and
-`Vote` store `partyGroup`/`deputyGroup` as raw strings. The `Party` model exists
-in the schema but has no ingestion path.
+The `Party` model is now populated via the party scraper (`runPartyPipeline`).
+Formation data is sourced from two streams:
 
-**Consequence:** Party-level analytics (e.g., "how did PP vote on X") must use
-the raw string fields, which are inconsistently formatted across sources.
+- `person` retriever — provides `shortName` (`FORMACIONELECTORAL`)
+- `person-detail` retriever — provides `name` (full name via `FORMACION`) and
+  `shortName`
 
-**Recommendation:** Either remove `Party` and `Deputy.partyId` until a scraper
-exists, or document the model as a placeholder. Do not leave it silently empty —
-it creates confusion about whether party data is expected to be present.
+A static config (`apps/ingestion/src/config/party-parents.ts`) maps PSOE
+regional branches to their canonical parent. `Deputy.partyId` reconciliation
+(linking deputies to their `Party` row) is a future post-ingestion step — see
+next steps.
 
 ### 6. No link between `Initiative` and `VotingSession`
 
