@@ -60,17 +60,37 @@ export const BureauInputSchema = z.object({
 });
 export type BureauInput = z.infer<typeof BureauInputSchema>;
 
-// Input schema for initiatives.ts scraper output
-export const InitiativeInputSchema = z.object({
+// Parliamentary bill (ProyectosDeLey, ProposicionesDeLey, PropuestasDeReforma)
+export const ParliamentaryInitiativeSchema = z.object({
   LEGISLATURE: z.number().int(),
   TIPO: z.string(),
-  NUMERO_LEY: z.string().optional(),
+  NUMEXPEDIENTE: z.string().min(1),
+  OBJETO: z.string(),
+  SITUACIONACTUAL: z.string().optional(),
+  RESULTADOTRAMITACION: z.string().optional(),
+  FECHAPRESENTACION: z.string().optional(),
+});
+export type ParliamentaryInitiativeInput = z.infer<
+  typeof ParliamentaryInitiativeSchema
+>;
+
+// Approved law / Real decreto (IniciativasLegislativasAprobadas)
+export const ApprovedLawSchema = z.object({
+  LEGISLATURE: z.number().int(),
+  TIPO: z.string(),
   TITULO_LEY: z.string(),
-  NUMERO_BOLETIN: z.string().optional(),
+  NUMERO_BOLETIN: z.string().min(1),
+  NUMERO_LEY: z.string().optional(),
   FECHA_BOLETIN: z.string().optional(),
   FECHA_LEY: z.string().optional(),
   PDF: z.string().optional(),
 });
+export type ApprovedLawInput = z.infer<typeof ApprovedLawSchema>;
+
+export const InitiativeInputSchema = z.union([
+  ParliamentaryInitiativeSchema,
+  ApprovedLawSchema,
+]);
 export type InitiativeInput = z.infer<typeof InitiativeInputSchema>;
 
 // Input schemas for interestDeclarations.ts scraper output
