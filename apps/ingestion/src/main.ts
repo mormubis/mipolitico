@@ -87,9 +87,10 @@ async function buildVotingFilter(): Promise<(url: string) => boolean> {
 // Source alias map — maps CLI --source values to one or more SourceEntry names
 // ---------------------------------------------------------------------------
 
-const SOURCE_ALIASES: Record<string, string[]> = {
+// null means "activate all sources"
+const SOURCE_ALIASES: Record<string, string[] | null> = {
   parties: ['person', 'person-detail'],
-  all: [], // empty = all sources
+  all: null,
 };
 
 // Maps SourceEntry names to ScraperMetadata keys for success/failure tracking
@@ -108,15 +109,15 @@ const SCRAPER_TYPE_MAP: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 async function runAll(source?: string): Promise<void> {
-  // Resolve alias to actual source names (undefined = all)
-  const resolvedSources: string[] | undefined =
-    source && source in SOURCE_ALIASES
-      ? SOURCE_ALIASES[source]?.length
-        ? SOURCE_ALIASES[source]
-        : undefined
-      : source
-        ? [source]
-        : undefined;
+  // Resolve alias to actual source names (undefined = all sources)
+  const resolvedSources: string[] | undefined = (() => {
+    if (!source) return undefined;
+    if (source in SOURCE_ALIASES) {
+      const alias = SOURCE_ALIASES[source];
+      return alias ?? undefined; // null alias = all sources
+    }
+    return [source];
+  })();
 
   const votingFilter =
     !resolvedSources || resolvedSources.includes('voting')
@@ -157,6 +158,11 @@ async function runAll(source?: string): Promise<void> {
   const PIPELINES: PipelineEntry<unknown, unknown>[] = [
     { sources: ['person'], sink: persistDeputies() },
     {
+      // partyProcessor uses reduce() — it accumulates the full merged stream
+      // from both 'person' and 'person-detail' before emitting. This means
+      // parties are persisted only after all retrievers complete (not just
+      // person + person-detail). This is intentional: the shared data$ completes
+      // when all active sources are done, which is when reduce() emits.
       sources: ['person', 'person-detail'],
       processor: partyProcessor as OperatorFunction<unknown, unknown>,
       sink: persistParties(),
@@ -180,11 +186,18 @@ async function runAll(source?: string): Promise<void> {
     ? SOURCES.filter((s) => resolvedSources.includes(s.name))
     : SOURCES;
 
-  const activePipelines = resolvedSources
-    ? PIPELINES.filter((p) =>
-        p.sources.some((s) => resolvedSources.includes(s)),
-      )
-    : PIPELINES;
+  // Only activate pipelines where ALL required sources are active.
+  // Pipelines whose sources are only partially active are skipped with a log.
+  const activePipelines = PIPELINES.filter((p) => {
+    const allActive = p.sources.every((s) => activeSourceNames.has(s));
+    if (!allActive && resolvedSources) {
+      const missing = p.sources.filter((s) => !activeSourceNames.has(s));
+      console.log(
+        `[main] Skipping pipeline [${p.sources.join(', ')}] — missing sources: ${missing.join(', ')}`,
+      );
+    }
+    return allActive;
+  });
 
   const activeSourceNames = new Set(activeSources.map((s) => s.name));
 
@@ -230,18 +243,16 @@ async function runAll(source?: string): Promise<void> {
     ).pipe(share());
 
     // Step 3: Build pipeline streams from registry
-    const pipelineStreams = activePipelines
-      .filter((p) => p.sources.every((s) => activeSourceNames.has(s)))
-      .map((entry) => {
-        const filtered$ = data$.pipe(
-          filter(({ source }) => entry.sources.includes(source)),
-          map(({ data }) => data),
-        );
-        const processed$ = entry.processor
-          ? filtered$.pipe(entry.processor)
-          : filtered$;
-        return processed$.pipe(entry.sink);
-      });
+    const pipelineStreams = activePipelines.map((entry) => {
+      const filtered$ = data$.pipe(
+        filter(({ source }) => entry.sources.includes(source)),
+        map(({ data }) => data),
+      );
+      const processed$ = entry.processor
+        ? filtered$.pipe(entry.processor)
+        : filtered$;
+      return processed$.pipe(entry.sink);
+    });
 
     if (pipelineStreams.length === 0) {
       console.warn('[main] No active pipelines for the given source(s)');
