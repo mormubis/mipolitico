@@ -45,3 +45,60 @@ done as a post-ingestion step — at scrape time only `electoralFormation` and
 
 Examples: `"Partido Popular"`, `"Partido Socialista Obrero Español"`,
 `"Esquerra Republicana de Catalunya"`
+
+---
+
+## Initiative (`iniciativa`)
+
+A legislative act or proposal tracked by the Congress. The opendata portal
+publishes four separate JSON datasets, each with a different schema and
+deduplication key.
+
+### Parliamentary bills (keyed by `NUMEXPEDIENTE`)
+
+These go through the full parliamentary process (committee, amendments, plenary
+vote). Format: `tipo/sequential/version` e.g. `121/000009/0000`.
+
+| Dataset               | `TIPO` code | Who proposes                                  |
+| --------------------- | ----------- | --------------------------------------------- |
+| `ProyectosDeLey`      | `121`       | Government                                    |
+| `ProposicionesDeLey`  | `122`       | Parliamentary groups or deputies              |
+| `PropuestasDeReforma` | —           | Regional parliaments (Estatutos de Autonomía) |
+
+These records have rich parliamentary history (`TRAMITACIONSEGUIDA`,
+`SITUACIONACTUAL`, `COMISIONCOMPETENTE`, etc.) but **no `NUMERO_BOLETIN`** —
+even when approved. `SITUACIONACTUAL: "Cerrado"` with
+`RESULTADOTRAMITACION: "Aprobado"` indicates a bill that was passed.
+
+### Enacted laws and executive instruments (keyed by `NUMERO_BOLETIN`)
+
+Sourced from `IniciativasLegislativasAprobadas`. These are BOE-centric records
+with minimal fields (`TIPO`, `NUMERO_LEY`, `TITULO_LEY`, `NUMERO_BOLETIN`,
+`FECHA_BOLETIN`, `FECHA_LEY`, `PDF`). **No `NUMEXPEDIENTE`**.
+
+| `TIPO`            | Description                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Leyes`           | Ordinary laws passed from a Proyecto or Proposición de Ley                                                             |
+| `Leyes orgánicas` | Organic laws (require absolute majority)                                                                               |
+| `Reales decretos` | Executive instruments issued by the Government — **bypass parliament**, no parliamentary history available in opendata |
+
+### Lifecycle: parliamentary bill → enacted law
+
+When a `ProyectoDeLey` or `ProposicionesDeLey` is approved, it appears in both
+datasets — but **there is no shared structured key** between them. The
+`IniciativasLegislativasAprobadas` record has no `NUMEXPEDIENTE`, and the
+parliamentary record has no `NUMERO_BOLETIN`. Reconciliation requires title
+matching (reliable for Leyes/Leyes orgánicas, ~93% hit rate on the matchable
+subset).
+
+### Data model implication
+
+The `Initiative` table uses **two independent deduplication keys**:
+
+- `expedienteNumero` — for parliamentary bills (3 opendata datasets)
+- `bulletinNumber` — for `Reales decretos` (no parliamentary counterpart)
+
+When a parliamentary bill is enriched via `IniciativasLegislativasAprobadas`
+title matching, `bulletinNumber`, `numeroLey`, `fechaLey`, and `pdfUrl` are
+populated on the existing row. `Reales decretos` are stored with only
+`bulletinNumber` and no parliamentary history fields.
