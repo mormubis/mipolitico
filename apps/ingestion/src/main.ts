@@ -84,11 +84,44 @@ async function buildVotingFilter(): Promise<(url: string) => boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Source alias map — maps CLI --source values to one or more SourceEntry names
+// ---------------------------------------------------------------------------
+
+const SOURCE_ALIASES: Record<string, string[]> = {
+  parties: ['person', 'person-detail'],
+  all: [], // empty = all sources
+};
+
+// Maps SourceEntry names to ScraperMetadata keys for success/failure tracking
+const SCRAPER_TYPE_MAP: Record<string, string> = {
+  'person': 'deputies',
+  'person-detail': 'parties',
+  'voting': 'voting',
+  'bureau': 'bureau',
+  'intervention': 'intervention',
+  'initiatives': 'initiatives',
+  'interest-declarations': 'interestDeclarations',
+};
+
+// ---------------------------------------------------------------------------
 // Orchestrator
 // ---------------------------------------------------------------------------
 
 async function runAll(source?: string): Promise<void> {
-  const votingFilter = await buildVotingFilter();
+  // Resolve alias to actual source names (undefined = all)
+  const resolvedSources: string[] | undefined =
+    source && source in SOURCE_ALIASES
+      ? SOURCE_ALIASES[source]?.length
+        ? SOURCE_ALIASES[source]
+        : undefined
+      : source
+        ? [source]
+        : undefined;
+
+  const votingFilter =
+    !resolvedSources || resolvedSources.includes('voting')
+      ? await buildVotingFilter()
+      : () => true;
 
   const SOURCES: SourceEntry<unknown>[] = [
     { name: 'person', finder: personFinder, retriever: personRetriever },
@@ -143,19 +176,25 @@ async function runAll(source?: string): Promise<void> {
   ];
 
   // Filter registry when --source is provided
-  const activeSources = source
-    ? SOURCES.filter((s) => s.name === source)
+  const activeSources = resolvedSources
+    ? SOURCES.filter((s) => resolvedSources.includes(s.name))
     : SOURCES;
 
-  const activePipelines = source
-    ? PIPELINES.filter((p) => p.sources.includes(source))
+  const activePipelines = resolvedSources
+    ? PIPELINES.filter((p) =>
+        p.sources.some((s) => resolvedSources.includes(s)),
+      )
     : PIPELINES;
 
   const activeSourceNames = new Set(activeSources.map((s) => s.name));
 
   if (activeSources.length === 0) {
+    const validSources = [
+      ...SOURCES.map((s) => s.name),
+      ...Object.keys(SOURCE_ALIASES),
+    ];
     console.error(
-      `[main] Unknown source: "${source ?? ''}". Valid: ${SOURCES.map((s) => s.name).join(', ')}`,
+      `[main] Unknown source: "${source ?? ''}". Valid: ${validSources.join(', ')}`,
     );
     process.exitCode = 1;
     return;
@@ -216,11 +255,39 @@ async function runAll(source?: string): Promise<void> {
       ),
     );
 
-    await updateScraperMetadata('deputies', true);
+    // Record success for each unique scraper type that ran
+    const scraperTypes = [
+      ...new Set(
+        activeSources
+          .map((s) => SCRAPER_TYPE_MAP[s.name])
+          .filter((t): t is string => t !== undefined),
+      ),
+    ];
+    await Promise.all(
+      scraperTypes.map((t) =>
+        updateScraperMetadata(
+          t as Parameters<typeof updateScraperMetadata>[0],
+          true,
+        ),
+      ),
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    await updateScraperMetadata('deputies', false, message).catch(
-      console.error,
+    const scraperTypes = [
+      ...new Set(
+        activeSources
+          .map((s) => SCRAPER_TYPE_MAP[s.name])
+          .filter((t): t is string => t !== undefined),
+      ),
+    ];
+    await Promise.all(
+      scraperTypes.map((t) =>
+        updateScraperMetadata(
+          t as Parameters<typeof updateScraperMetadata>[0],
+          false,
+          message,
+        ).catch(console.error),
+      ),
     );
     throw error;
   } finally {
