@@ -142,29 +142,32 @@ initiative reference. A future reconciliation step could add an optional
 `initiativeId String?` FK to `VotingSession`. This is post-ingestion enrichment,
 not a scraper change.
 
-### 7. `Initiative.bulletinNumber` used as deduplication key, but can be null
+### 7. `Initiative` deduplication — resolved
 
-The unique constraint is `(legislature, bulletinNumber)`. When `bulletinNumber`
-is null, this constraint does not apply (SQL NULLs are not considered equal in
-unique constraints), meaning multiple null-bulletinNumber rows for the same
-legislature can exist. The repository skips records without a bulletin number,
-which avoids duplicates at the cost of data loss.
+The `Initiative` model now uses two independent deduplication keys:
 
-**Recommendation:** Investigate whether the source data provides an alternative
-stable identifier for initiatives without a bulletin number (e.g., an expedient
-number). If yes, add it as a secondary deduplication key. If no, document the
-known loss explicitly.
+- `expedienteNumero` — for parliamentary bills (`ProyectosDeLey`,
+  `ProposicionesDeLey`, `PropuestasDeReforma`)
+- `bulletinNumber` — for `Reales decretos` (no parliamentary counterpart in
+  opendata)
+
+An enrichment pass title-matches approved `Leyes`/`Leyes orgánicas` from
+`IniciativasLegislativasAprobadas` against closed parliamentary bills to
+populate `bulletinNumber`, `number`, `enactedDate`, and `pdfUrl`. Jaccard
+similarity threshold: 0.6 (~93% hit rate on the matchable subset).
+
+See `GLOSSARY.md#initiative-iniciativa` for the full dataset breakdown.
 
 ---
 
 ## Summary Table
 
-| Gap                                                     | Severity | Recommended Action                                                                           |
-| ------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| No stable deputy identifier available                   | —        | `codParlamentario` is internal API only; name dedup on `Person` accepted as known limitation |
-| `InterestDeclaration` → `Deputy` (term-scoped)          | —        | Correct by design                                                                            |
-| `Vote` has no stable person identifier                  | Low      | Accept; store source ID if available                                                         |
-| `Speech.sessionId` has no referential integrity         | Low      | Accept; document for future                                                                  |
-| `Party` model                                           | —        | Populated via party scraper; `parentId` self-relation models regional branches               |
-| `Initiative` ↔ `VotingSession` unlinked                | Low      | Future enrichment step                                                                       |
-| `Initiative` deduplication fails on null bulletinNumber | Medium   | Find alternative key                                                                         |
+| Gap                                             | Severity | Recommended Action                                                                                                     |
+| ----------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| No stable deputy identifier available           | —        | `codParlamentario` is internal API only; name dedup on `Person` accepted as known limitation                           |
+| `InterestDeclaration` → `Deputy` (term-scoped)  | —        | Correct by design                                                                                                      |
+| `Vote` has no stable person identifier          | Low      | Accept; store source ID if available                                                                                   |
+| `Speech.sessionId` has no referential integrity | Low      | Accept; document for future                                                                                            |
+| `Party` model                                   | —        | Populated via party scraper; `parentId` self-relation models regional branches                                         |
+| `Initiative` ↔ `VotingSession` unlinked        | Low      | Future enrichment step                                                                                                 |
+| `Initiative` deduplication                      | —        | Fixed: `expedienteNumero` for parliamentary bills, `bulletinNumber` for Reales decretos; enrichment pass links the two |
