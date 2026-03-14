@@ -5,7 +5,6 @@ import { Observable } from 'rxjs';
 
 import type { Retriever } from '../types.ts';
 import type { InitiativeInput } from '@congress/database';
-
 // TODO: Update legislature number when legislature XV ends (same as intervention/finder.ts)
 const CURRENT_LEGISLATURE = 15;
 
@@ -29,11 +28,17 @@ const retriever: Retriever<InitiativeInput> = ({ fetch, url }) => {
 
         oboe(Readable.fromWeb(response.body))
           .node('!.*', (item: unknown) => {
-            const record = InitiativeInputSchema.parse({
+            const result = InitiativeInputSchema.safeParse({
               ...(item as Record<string, unknown>),
               LEGISLATURE: CURRENT_LEGISLATURE,
             });
-            subscriber.next(record);
+            if (result.success) {
+              subscriber.next(result.data);
+            } else {
+              console.warn(
+                `[initiatives] Skipping unrecognised record from ${url}: ${result.error.message}`,
+              );
+            }
           })
           .done(() => {
             subscriber.complete();
