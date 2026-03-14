@@ -16,4 +16,22 @@ type Retriever<T> = (options: RetrieverOptions) => Observable<T>;
 
 type Processor<T, U = T> = OperatorFunction<T, U>;
 
-export type { CommonOptions, Finder, Processor, Retriever, RetrieverOptions };
+interface TaggedUrl {
+  source: string;
+  url: string;
+}
+
+interface TaggedData<T = unknown> {
+  source: string;
+  data: T;
+}
+
+export type {
+  CommonOptions,
+  Finder,
+  Processor,
+  Retriever,
+  RetrieverOptions,
+  TaggedData,
+  TaggedUrl,
+};
