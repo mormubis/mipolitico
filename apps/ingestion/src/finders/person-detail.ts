@@ -71,5 +71,4 @@ const finder: Finder = ({ browser }) =>
     })();
   });
 
-export type { DeputyItem };
 export { finder };
