@@ -1,4 +1,4 @@
-import { Observable, reduce } from 'rxjs';
+import { mergeMap, of, pipe, reduce } from 'rxjs';
 
 import { PARTY_PARENTS } from '../config/party-parents.ts';
 
@@ -26,40 +26,38 @@ function hasFormacion(input: Input): input is PersonDetailModel {
   return 'FORMACION' in input && typeof input.FORMACION === 'string';
 }
 
-export const processor: OperatorFunction<Input, PartyInput> = (source$) =>
-  new Observable<PartyInput>((subscriber) => {
-    return source$
-      .pipe(
-        reduce((acc, record) => {
-          const shortName = record.FORMACIONELECTORAL.trim();
-          if (!shortName) return acc;
+const processor: OperatorFunction<Input, PartyInput> = pipe(
+  reduce((acc, record) => {
+    const shortName = record.FORMACIONELECTORAL.trim();
+    if (!shortName) return acc;
 
-          const existing = acc.get(shortName) ?? {
-            shortName,
-            parentShortName: PARTY_PARENTS[shortName],
-          };
+    const existing = acc.get(shortName) ?? {
+      shortName,
+      parentShortName: PARTY_PARENTS[shortName],
+    };
 
-          if (hasFormacion(record) && record.FORMACION.trim()) {
-            existing.name = record.FORMACION.trim();
-          }
+    if (hasFormacion(record) && record.FORMACION.trim()) {
+      existing.name = record.FORMACION.trim();
+    }
 
-          acc.set(shortName, existing);
-          return acc;
-        }, new Map<string, PartialParty>()),
-      )
-      .subscribe({
-        next: (map) => {
-          for (const entry of map.values()) {
-            // Only emit complete entries — defer parties without a full name
-            // to the next run when person-detail data is available.
-            if (entry.name) {
-              subscriber.next(entry as PartyInput);
-            }
-          }
-          subscriber.complete();
-        },
-        error: (err: unknown) => {
-          subscriber.error(err);
-        },
-      });
-  });
+    acc.set(shortName, existing);
+    return acc;
+  }, new Map<string, PartialParty>()),
+  mergeMap((map) =>
+    of(
+      // Only emit complete entries — defer parties without a full name
+      // to the next run when person-detail data is available.
+      ...[...map.values()].filter((e): e is Required<PartialParty> => {
+        if (!e.name) {
+          console.warn(
+            `[party] Skipping party with no full name: ${e.shortName}`,
+          );
+          return false;
+        }
+        return true;
+      }),
+    ),
+  ),
+);
+
+export { processor };
