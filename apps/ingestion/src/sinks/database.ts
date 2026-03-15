@@ -7,206 +7,147 @@ import {
   upsertSpeeches,
   upsertVotingRecords,
 } from '@congress/database';
-import { Observable, bufferCount, finalize, mergeMap } from 'rxjs';
+import { bufferCount, map, mergeMap, reduce, scan, tap } from 'rxjs';
 
-import type { OperatorFunction } from 'rxjs';
+import type { Sink } from '../types.ts';
 
 const BATCH_SIZE = 500;
 
-export interface PersistResult {
+interface PersistResult {
   source: string;
   batches: number;
   totalSuccess: number;
   totalSkipped: number;
+  totalSessions?: number;
+}
+
+interface BatchResult { totalSuccess: number; totalSkipped: number }
+
+/**
+ * Generic factory that creates a batched persist sink for any upsert function
+ * returning { success, skipped }.
+ */
+function createBatchedSink(
+  tag: string,
+  upsert: (batch: unknown[]) => Promise<BatchResult>,
+): Sink<unknown, PersistResult> {
+  return (source) =>
+    source.pipe(
+      bufferCount(BATCH_SIZE),
+      mergeMap(async (batch) => {
+        const result = await upsert(batch);
+        return {
+          totalSuccess: result.totalSuccess,
+          totalSkipped: result.totalSkipped,
+        };
+      }),
+      scan(
+        (acc, r) => ({
+          batch: acc.batch + 1,
+          totalSuccess: r.totalSuccess,
+          totalSkipped: r.totalSkipped,
+        }),
+        { batch: 0, totalSuccess: 0, totalSkipped: 0 },
+      ),
+      tap(({ batch, totalSuccess, totalSkipped }) =>
+        { console.log(
+          `[${tag}] Batch ${String(batch)}: ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
+        ); },
+      ),
+      reduce(
+        (acc, r) => ({
+          batches: acc.batches + 1,
+          totalSuccess: acc.totalSuccess + r.totalSuccess,
+          totalSkipped: acc.totalSkipped + r.totalSkipped,
+        }),
+        { batches: 0, totalSuccess: 0, totalSkipped: 0 },
+      ),
+      map((acc) => ({ source: tag, ...acc })),
+      tap((r) =>
+        { console.log(
+          `[${tag}] Complete: ${String(r.batches)} batches, ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped`,
+        ); },
+      ),
+    );
 }
 
 /**
  * RxJS operator that buffers deputy records and persists to database
  */
-export function persistDeputies(
+function persistDeputies(
   options: { legislature?: number } = {},
-): OperatorFunction<unknown, PersistResult> {
-  let batches = 0;
-  let totalSuccess = 0;
-  let totalSkipped = 0;
-
-  return (source: Observable<unknown>) =>
-    source.pipe(
-      bufferCount(BATCH_SIZE),
-      mergeMap(async (batch) => {
-        const result = await upsertDeputies(batch, options);
-        batches++;
-        totalSuccess += result.success;
-        totalSkipped += result.skipped;
-        console.log(
-          `[deputies] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
-        );
-        return result;
-      }),
-      finalize(() => {
-        console.log(
-          `[deputies] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
-        );
-      }),
-      // Use a custom approach to emit final result
-      (obs) =>
-        new Observable<PersistResult>((subscriber) => {
-          obs.subscribe({
-            complete: () => {
-              subscriber.next({
-                source: 'deputies',
-                batches,
-                totalSuccess,
-                totalSkipped,
-              });
-              subscriber.complete();
-            },
-            error: (err: Error) => {
-              subscriber.error(err);
-            },
-          });
-        }),
-    );
+): Sink<unknown, PersistResult> {
+  return createBatchedSink('deputies', async (batch) => {
+    const result = await upsertDeputies(batch, options);
+    return { totalSuccess: result.success, totalSkipped: result.skipped };
+  });
 }
 
 /**
  * RxJS operator that buffers voting records and persists to database
  */
-export function persistVotes(): OperatorFunction<unknown, PersistResult> {
-  let batches = 0;
-  let totalSessions = 0;
-  let totalVotes = 0;
-  let totalSkipped = 0;
-
-  return (source: Observable<unknown>) =>
+function persistVotes(): Sink<unknown, PersistResult> {
+  return (source) =>
     source.pipe(
       bufferCount(BATCH_SIZE),
       mergeMap(async (batch) => {
         const result = await upsertVotingRecords(batch);
-        batches++;
-        totalSessions += result.sessions;
-        totalVotes += result.votes;
-        totalSkipped += result.skipped;
-        console.log(
-          `[votes] Batch ${String(batches)}: ${String(result.sessions)} sessions, ${String(result.votes)} votes, ${String(result.skipped)} skipped`,
-        );
-        return result;
+        return {
+          totalSuccess: result.votes,
+          totalSkipped: result.skipped,
+          totalSessions: result.sessions,
+        };
       }),
-      finalize(() => {
-        console.log(
-          `[votes] Complete: ${String(batches)} batches, ${String(totalSessions)} sessions, ${String(totalVotes)} votes, ${String(totalSkipped)} skipped`,
-        );
-      }),
-      (obs) =>
-        new Observable<PersistResult>((subscriber) => {
-          obs.subscribe({
-            complete: () => {
-              subscriber.next({
-                source: 'votes',
-                batches,
-                totalSuccess: totalVotes,
-                totalSkipped,
-              });
-              subscriber.complete();
-            },
-            error: (err: Error) => {
-              subscriber.error(err);
-            },
-          });
+      scan(
+        (acc, r) => ({
+          batch: acc.batch + 1,
+          totalSuccess: r.totalSuccess,
+          totalSkipped: r.totalSkipped,
+          totalSessions: r.totalSessions,
         }),
+        { batch: 0, totalSuccess: 0, totalSkipped: 0, totalSessions: 0 },
+      ),
+      tap(({ batch, totalSessions, totalSuccess, totalSkipped }) =>
+        { console.log(
+          `[votes] Batch ${String(batch)}: ${String(totalSessions)} sessions, ${String(totalSuccess)} votes, ${String(totalSkipped)} skipped`,
+        ); },
+      ),
+      reduce(
+        (acc, r) => ({
+          batches: acc.batches + 1,
+          totalSuccess: acc.totalSuccess + r.totalSuccess,
+          totalSkipped: acc.totalSkipped + r.totalSkipped,
+          totalSessions: acc.totalSessions + r.totalSessions,
+        }),
+        { batches: 0, totalSuccess: 0, totalSkipped: 0, totalSessions: 0 },
+      ),
+      map((acc) => ({ source: 'votes', ...acc })),
+      tap((r) =>
+        { console.log(
+          `[votes] Complete: ${String(r.batches)} batches, ${String(r.totalSessions)} sessions, ${String(r.totalSuccess)} votes, ${String(r.totalSkipped)} skipped`,
+        ); },
+      ),
     );
 }
 
 /**
  * RxJS operator that buffers speech records and persists to database
  */
-export function persistSpeeches(): OperatorFunction<unknown, PersistResult> {
-  let batches = 0;
-  let totalSuccess = 0;
-  let totalSkipped = 0;
-
-  return (source: Observable<unknown>) =>
-    source.pipe(
-      bufferCount(BATCH_SIZE),
-      mergeMap(async (batch) => {
-        const result = await upsertSpeeches(batch);
-        batches++;
-        totalSuccess += result.success;
-        totalSkipped += result.skipped;
-        console.log(
-          `[speeches] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
-        );
-        return result;
-      }),
-      finalize(() => {
-        console.log(
-          `[speeches] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
-        );
-      }),
-      (obs) =>
-        new Observable<PersistResult>((subscriber) => {
-          obs.subscribe({
-            complete: () => {
-              subscriber.next({
-                source: 'speeches',
-                batches,
-                totalSuccess,
-                totalSkipped,
-              });
-              subscriber.complete();
-            },
-            error: (err: Error) => {
-              subscriber.error(err);
-            },
-          });
-        }),
-    );
+function persistSpeeches(): Sink<unknown, PersistResult> {
+  return createBatchedSink('speeches', async (batch) => {
+    const result = await upsertSpeeches(batch);
+    return { totalSuccess: result.success, totalSkipped: result.skipped };
+  });
 }
 
 /**
  * RxJS operator that buffers initiative records and persists to database
  */
-export function persistInitiatives(): OperatorFunction<unknown, PersistResult> {
-  let batches = 0;
-  let totalSuccess = 0;
-  let totalSkipped = 0;
-
-  return (source: Observable<unknown>) =>
-    source.pipe(
-      bufferCount(BATCH_SIZE),
-      mergeMap(async (batch) => {
-        const result = await upsertInitiatives(batch);
-        batches++;
-        totalSuccess += result.success;
-        totalSkipped += result.skipped;
-        console.log(
-          `[initiatives] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
-        );
-        return result;
-      }),
-      finalize(() => {
-        console.log(
-          `[initiatives] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
-        );
-      }),
-      (obs) =>
-        new Observable<PersistResult>((subscriber) => {
-          obs.subscribe({
-            complete: () => {
-              subscriber.next({
-                source: 'initiatives',
-                batches,
-                totalSuccess,
-                totalSkipped,
-              });
-              subscriber.complete();
-            },
-            error: (err: Error) => {
-              subscriber.error(err);
-            },
-          });
-        }),
-    );
+function persistInitiatives(): Sink<unknown, PersistResult> {
+  return createBatchedSink('initiatives', async (batch) => {
+    const result = await upsertInitiatives(batch);
+    return { totalSuccess: result.success, totalSkipped: result.skipped };
+  });
 }
 
 /**
@@ -214,140 +155,57 @@ export function persistInitiatives(): OperatorFunction<unknown, PersistResult> {
  * Each record is upserted individually (no batching) because the repository
  * runs a transaction per declaration.
  */
-export function persistInterestDeclarations(): OperatorFunction<
-  unknown,
-  PersistResult
-> {
-  let totalSuccess = 0;
-  let totalSkipped = 0;
-
-  return (source: Observable<unknown>) =>
+function persistInterestDeclarations(): Sink<unknown, PersistResult> {
+  return (source) =>
     source.pipe(
       mergeMap(async (record) => {
         const success = await upsertInterestDeclaration(record);
-        if (success) {
-          totalSuccess++;
-        } else {
-          totalSkipped++;
-        }
-        return success;
+        return { totalSuccess: success ? 1 : 0, totalSkipped: success ? 0 : 1 };
       }),
-      finalize(() => {
-        console.log(
-          `[interestDeclarations] Complete: ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
-        );
-      }),
-      (obs) =>
-        new Observable<PersistResult>((subscriber) => {
-          obs.subscribe({
-            complete: () => {
-              subscriber.next({
-                source: 'interestDeclarations',
-                batches: totalSuccess + totalSkipped,
-                totalSuccess,
-                totalSkipped,
-              });
-              subscriber.complete();
-            },
-            error: (err: Error) => {
-              subscriber.error(err);
-            },
-          });
+      reduce(
+        (acc, r) => ({
+          batches: 0,
+          totalSuccess: acc.totalSuccess + r.totalSuccess,
+          totalSkipped: acc.totalSkipped + r.totalSkipped,
         }),
+        { batches: 0, totalSuccess: 0, totalSkipped: 0 },
+      ),
+      map((acc) => ({ source: 'interestDeclarations', ...acc })),
+      tap((r) =>
+        { console.log(
+          `[interestDeclarations] Complete: ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped`,
+        ); },
+      ),
     );
 }
 
 /**
  * RxJS operator that buffers party records and persists to database.
  */
-export function persistParties(): OperatorFunction<unknown, PersistResult> {
-  let batches = 0;
-  let totalSuccess = 0;
-  let totalSkipped = 0;
-
-  return (source: Observable<unknown>) =>
-    source.pipe(
-      bufferCount(BATCH_SIZE),
-      mergeMap(async (batch) => {
-        const result = await upsertParties(batch);
-        batches++;
-        totalSuccess += result.success;
-        totalSkipped += result.skipped;
-        console.log(
-          `[parties] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
-        );
-        return result;
-      }),
-      finalize(() => {
-        console.log(
-          `[parties] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
-        );
-      }),
-      (obs) =>
-        new Observable<PersistResult>((subscriber) => {
-          obs.subscribe({
-            complete: () => {
-              subscriber.next({
-                source: 'parties',
-                batches,
-                totalSuccess,
-                totalSkipped,
-              });
-              subscriber.complete();
-            },
-            error: (err: Error) => {
-              subscriber.error(err);
-            },
-          });
-        }),
-    );
+function persistParties(): Sink<unknown, PersistResult> {
+  return createBatchedSink('parties', async (batch) => {
+    const result = await upsertParties(batch);
+    return { totalSuccess: result.success, totalSkipped: result.skipped };
+  });
 }
 
 /**
  * RxJS operator that buffers organ member records and persists to database
  */
-export function persistOrganMembers(): OperatorFunction<
-  unknown,
-  PersistResult
-> {
-  let batches = 0;
-  let totalSuccess = 0;
-  let totalSkipped = 0;
-
-  return (source: Observable<unknown>) =>
-    source.pipe(
-      bufferCount(BATCH_SIZE),
-      mergeMap(async (batch) => {
-        const result = await upsertOrganMembers(batch);
-        batches++;
-        totalSuccess += result.success;
-        totalSkipped += result.skipped;
-        console.log(
-          `[organMembers] Batch ${String(batches)}: ${String(result.success)} success, ${String(result.skipped)} skipped`,
-        );
-        return result;
-      }),
-      finalize(() => {
-        console.log(
-          `[organMembers] Complete: ${String(batches)} batches, ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
-        );
-      }),
-      (obs) =>
-        new Observable<PersistResult>((subscriber) => {
-          obs.subscribe({
-            complete: () => {
-              subscriber.next({
-                source: 'organMembers',
-                batches,
-                totalSuccess,
-                totalSkipped,
-              });
-              subscriber.complete();
-            },
-            error: (err: Error) => {
-              subscriber.error(err);
-            },
-          });
-        }),
-    );
+function persistOrganMembers(): Sink<unknown, PersistResult> {
+  return createBatchedSink('organMembers', async (batch) => {
+    const result = await upsertOrganMembers(batch);
+    return { totalSuccess: result.success, totalSkipped: result.skipped };
+  });
 }
+
+export {
+  persistDeputies,
+  persistInitiatives,
+  persistInterestDeclarations,
+  persistOrganMembers,
+  persistParties,
+  persistSpeeches,
+  persistVotes,
+  type PersistResult,
+};

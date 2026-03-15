@@ -44,6 +44,7 @@ import type {
   CommonOptions,
   Finder,
   Retriever,
+  Sink,
   TaggedData,
   TaggedUrl,
 } from './types.ts';
@@ -63,7 +64,7 @@ interface SourceEntry<T> {
 interface PipelineEntry<T, U> {
   sources: string[];
   processor?: OperatorFunction<T, U>;
-  sink: OperatorFunction<U, unknown>;
+  sink: Sink<U, unknown>;
 }
 
 // ---------------------------------------------------------------------------

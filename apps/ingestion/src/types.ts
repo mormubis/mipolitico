@@ -17,6 +17,8 @@ type Retriever<T> = (options: RetrieverOptions) => Observable<T>;
 
 type Processor<T, U = T> = OperatorFunction<T, U>;
 
+type Sink<T, U = T> = OperatorFunction<T, U>;
+
 interface TaggedUrl {
   source: string;
   url: string;
@@ -33,6 +35,7 @@ export type {
   Processor,
   Retriever,
   RetrieverOptions,
+  Sink,
   TaggedData,
   TaggedUrl,
 };
