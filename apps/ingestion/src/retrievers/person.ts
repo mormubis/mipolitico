@@ -3,6 +3,8 @@ import oboe from 'oboe';
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 
+import { validate } from '../utils.ts';
+
 import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
@@ -18,7 +20,7 @@ const Schema = z.object({
   NOMBRE: z.string(),
 });
 
-const retriever: Retriever<Model> = ({ fetch, url }) => {
+const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
   return new Observable((subscriber) => {
     void (async () => {
       try {
@@ -36,9 +38,12 @@ const retriever: Retriever<Model> = ({ fetch, url }) => {
           );
         }
 
+        const parser = validate(Schema, validationMode);
+
         oboe(Readable.fromWeb(response.body))
           .node('!.*', (item) => {
-            subscriber.next(item as Model);
+            const record = parser(item, url);
+            if (record) subscriber.next(record);
           })
           .done(() => {
             subscriber.complete();
@@ -46,8 +51,12 @@ const retriever: Retriever<Model> = ({ fetch, url }) => {
           .fail((error) => {
             subscriber.error(error);
           });
-      } catch (e) {
-        subscriber.error(e);
+      } catch (cause) {
+        subscriber.error(
+          new Error(`Failed to process ${url}: ${(cause as Error).message}`, {
+            cause,
+          }),
+        );
       }
     })();
   });

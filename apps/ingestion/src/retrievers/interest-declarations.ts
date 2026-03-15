@@ -88,10 +88,6 @@ const retriever: Retriever<InterestDeclarationInput> = ({
           rowsByName.set(key, existing);
         }
 
-        console.log(
-          `[interestDeclarations] Processing ${String(rowsByName.size)} deputies`,
-        );
-
         // For each deputy group, scrape their profile page for the PDF URL
         for (const [normalizedName, deputyRows] of rowsByName) {
           const page = await browser.newPage();
@@ -100,7 +96,7 @@ const retriever: Retriever<InterestDeclarationInput> = ({
             // Use a name-based search URL
             const searchUrl = `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=S&nombre=${encodeURIComponent(normalizedName)}`;
 
-            await page.goto(searchUrl);
+            await page.goto(searchUrl, { waitUntil: 'networkidle' });
 
             const pdfUrl = await page
               .getByText('Declaración de Intereses Económicos')
@@ -119,7 +115,7 @@ const retriever: Retriever<InterestDeclarationInput> = ({
             });
           } catch (cause) {
             console.warn(
-              `[interestDeclarations] Failed to scrape profile for ${normalizedName}: ${(cause as Error).message}`,
+              `[validate] Skipping deputy ${normalizedName}: ${(cause as Error).message}`,
             );
           } finally {
             await page.close().catch(() => undefined);
@@ -129,10 +125,9 @@ const retriever: Retriever<InterestDeclarationInput> = ({
         subscriber.complete();
       } catch (cause) {
         subscriber.error(
-          new Error(
-            `[interestDeclarations] Failed: ${(cause as Error).message}`,
-            { cause },
-          ),
+          new Error(`Failed to process ${url}: ${(cause as Error).message}`, {
+            cause,
+          }),
         );
       }
     })();

@@ -23,7 +23,7 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
       const page = await browser.newPage();
 
       try {
-        await page.goto(url);
+        await page.goto(url, { waitUntil: 'networkidle' });
 
         const sessionIdRaw =
           (await page.locator('.datos2').textContent()) ?? '';

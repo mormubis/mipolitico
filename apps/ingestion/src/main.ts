@@ -108,7 +108,10 @@ const SCRAPER_TYPE_MAP: Record<string, string> = {
 // Orchestrator
 // ---------------------------------------------------------------------------
 
-async function runAll(source?: string): Promise<void> {
+async function runAll(
+  source?: string,
+  validationMode: 'strict' | 'soft' = 'soft',
+): Promise<void> {
   // Resolve alias to actual source names (undefined = all sources)
   const resolvedSources: string[] | undefined = (() => {
     if (!source) return undefined;
@@ -216,6 +219,7 @@ async function runAll(source?: string): Promise<void> {
   const browser = await launch({ headless: true });
   try {
     const options: CommonOptions = { browser, fetch };
+    const retrieverOptions = { ...options, validationMode };
 
     // Step 1: Build shared tagged URL pool
     const urls$ = merge(
@@ -233,7 +237,7 @@ async function runAll(source?: string): Promise<void> {
         urls$.pipe(
           filter(({ source }) => source === entry.name),
           mergeMap(({ url }) =>
-            entry.retriever({ url, ...options }).pipe(
+            entry.retriever({ url, ...retrieverOptions }).pipe(
               retry({ delay: 15 * 1000, count: 1 }),
               map((data): TaggedData => ({ source: entry.name, data })),
             ),
@@ -315,7 +319,11 @@ const sourceArg = process.argv
   .find((arg) => arg.startsWith('--source='))
   ?.replace('--source=', '');
 
-void runAll(sourceArg).catch((error: unknown) => {
+const validationArg = process.argv.includes('--validation=strict')
+  ? 'strict'
+  : 'soft';
+
+void runAll(sourceArg, validationArg).catch((error: unknown) => {
   console.error('[main] Fatal error:', error);
   process.exitCode = 1;
 });

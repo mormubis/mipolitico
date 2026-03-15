@@ -10,6 +10,7 @@ type Finder = (options: CommonOptions) => Observable<string>;
 
 interface RetrieverOptions extends CommonOptions {
   url: string;
+  validationMode: 'strict' | 'soft';
 }
 
 type Retriever<T> = (options: RetrieverOptions) => Observable<T>;

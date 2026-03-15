@@ -8,7 +8,11 @@ import type { InitiativeInput } from '@congress/database';
 // TODO: Update legislature number when legislature XV ends (same as intervention/finder.ts)
 const CURRENT_LEGISLATURE = 15;
 
-const retriever: Retriever<InitiativeInput> = ({ fetch, url }) => {
+const retriever: Retriever<InitiativeInput> = ({
+  fetch,
+  url,
+  validationMode,
+}) => {
   return new Observable((subscriber) => {
     void (async () => {
       try {
@@ -34,9 +38,11 @@ const retriever: Retriever<InitiativeInput> = ({ fetch, url }) => {
             });
             if (result.success) {
               subscriber.next(result.data);
+            } else if (validationMode === 'strict') {
+              throw result.error;
             } else {
               console.warn(
-                `[initiatives] Skipping unrecognised record from ${url}: ${result.error.message}`,
+                `[validate] Skipping invalid record from ${url}: ${result.error.message}`,
               );
             }
           })
@@ -46,8 +52,12 @@ const retriever: Retriever<InitiativeInput> = ({ fetch, url }) => {
           .fail((error) => {
             subscriber.error(error);
           });
-      } catch (e) {
-        subscriber.error(e);
+      } catch (cause) {
+        subscriber.error(
+          new Error(`Failed to process ${url}: ${(cause as Error).message}`, {
+            cause,
+          }),
+        );
       }
     })();
   });

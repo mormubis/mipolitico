@@ -1,6 +1,8 @@
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 
+import { validate } from '../utils.ts';
+
 import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
@@ -25,7 +27,7 @@ const Schema = z.object({
   JSON_URL: z.string(),
 });
 
-const retriever: Retriever<Model> = ({ fetch, url }) => {
+const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
   return new Observable<Model>((subscriber) => {
     void (async () => {
       try {
@@ -82,7 +84,8 @@ const retriever: Retriever<Model> = ({ fetch, url }) => {
             JSON_URL: url,
           };
 
-          subscriber.next(Schema.parse(record));
+          const parsed = validate(Schema, validationMode)(record, url);
+          if (parsed) subscriber.next(parsed);
         }
 
         subscriber.complete();

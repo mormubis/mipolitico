@@ -64,7 +64,11 @@ async function main(): Promise<void> {
   const browser = await chromium.launch();
 
   try {
-    const opts = { browser, fetch: globalThis.fetch };
+    const opts = {
+      browser,
+      fetch: globalThis.fetch,
+      validationMode: 'strict' as const,
+    };
 
     // -----------------------------------------------------------------------
     // person — run finder to get fresh timestamped URL

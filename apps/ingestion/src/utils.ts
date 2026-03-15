@@ -1,3 +1,20 @@
+import type { z } from 'zod';
+
+function validate<T>(
+  schema: z.ZodType<T>,
+  mode: 'strict' | 'soft',
+): (data: unknown, context?: string) => T | undefined {
+  return (data, context) => {
+    const result = schema.safeParse(data);
+    if (result.success) return result.data;
+    if (mode === 'strict') throw result.error;
+    console.warn(
+      `[validate] Skipping invalid record${context ? ` from ${context}` : ''}: ${result.error.message}`,
+    );
+    return undefined;
+  };
+}
+
 function random(min: number, max?: number): number {
   if (max === undefined) {
     max = min;
@@ -62,4 +79,4 @@ function shuffle<T>(array: T[]): T[] {
   return result;
 }
 
-export { random, romanize, shuffle, sleep };
+export { random, romanize, shuffle, sleep, validate };

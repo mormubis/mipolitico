@@ -36,14 +36,11 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
       const codParlamentario = Number(
         urlObj.searchParams.get('codParlamentario') ?? '0',
       );
-      const FORMACIONELECTORAL = decodeURIComponent(
-        urlObj.searchParams.get('formacion') ?? '',
-      );
 
       const page = await browser.newPage();
 
       try {
-        await page.goto(url);
+        await page.goto(url, { waitUntil: 'networkidle' });
 
         const [
           DECLARACION_ACTIVIDADES_URL,
@@ -110,7 +107,7 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
           page
             .locator('img[alt="Card image cap"]')
             .first()
-            .getAttribute('href', { timeout: random(1000, 3000) })
+            .getAttribute('src', { timeout: random(1000, 3000) })
             .catch(() => {
               throw new Error('Failed to extract Foto URL');
             }),
@@ -169,6 +166,13 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
 
         const FORMACION = await page
           .locator('.formacion, [class*="formacion"]')
+          .first()
+          .textContent()
+          .then((t) => (t ?? '').trim())
+          .catch(() => '');
+
+        const FORMACIONELECTORAL = await page
+          .locator('.siglas-partido')
           .first()
           .textContent()
           .then((t) => (t ?? '').trim())
