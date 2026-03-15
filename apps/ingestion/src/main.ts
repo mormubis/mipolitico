@@ -16,6 +16,7 @@ import {
 import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
 import { finder as interestDeclarationsFinder } from './finders/interest-declarations.ts';
+import { finder as interventionDetailFinder } from './finders/intervention-detail.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
 import { finder as personDetailFinder } from './finders/person-detail.ts';
 import { finder as personFinder } from './finders/person.ts';
@@ -26,6 +27,7 @@ import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
 import { retriever as interestDeclarationsRetriever } from './retrievers/interest-declarations.ts';
+import { retriever as interventionDetailRetriever } from './retrievers/intervention-detail.ts';
 import { retriever as interventionRetriever } from './retrievers/intervention.ts';
 import { retriever as personDetailRetriever } from './retrievers/person-detail.ts';
 import { retriever as personRetriever } from './retrievers/person.ts';
@@ -101,6 +103,7 @@ const SCRAPER_TYPE_MAP: Record<string, string> = {
   'voting': 'voting',
   'bureau': 'bureau',
   'intervention': 'intervention',
+  'intervention-detail': 'speeches',
   'initiatives': 'initiatives',
   'interest-declarations': 'interestDeclarations',
 };
@@ -148,6 +151,11 @@ async function runAll(
       retriever: interventionRetriever,
     },
     {
+      name: 'intervention-detail',
+      finder: interventionDetailFinder,
+      retriever: interventionDetailRetriever,
+    },
+    {
       name: 'initiatives',
       finder: initiativesFinder,
       retriever: initiativesRetriever,
@@ -173,7 +181,7 @@ async function runAll(
     },
     { sources: ['voting'], sink: persistVotes() },
     { sources: ['bureau'], sink: persistOrganMembers() },
-    { sources: ['intervention'], sink: persistSpeeches() },
+    { sources: ['intervention-detail'], sink: persistSpeeches() },
     { sources: ['initiatives'], sink: persistInitiatives() },
     {
       sources: ['interest-declarations'],
