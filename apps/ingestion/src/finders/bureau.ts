@@ -2,29 +2,54 @@ import { Observable } from 'rxjs';
 
 import type { Finder } from '../types.ts';
 
+const BASE = 'https://www.congreso.es';
+
 const finder: Finder = ({ browser }) =>
   new Observable<string>((subscriber) => {
     void (async () => {
       const page = await browser.newPage();
 
       try {
-        await page.goto('https://www.congreso.es/es/opendata/organos', {
+        await page.goto(`${BASE}/es/opendata/organos`, {
           waitUntil: 'networkidle',
         });
 
-        await Promise.all([
-          page.waitForLoadState('networkidle'),
-          page.getByText('Exportar datos composición').first().click(),
-        ]);
+        // Collect all organ types available in the selector
+        const organTypes = await page
+          .locator('select')
+          .nth(1)
+          .evaluateAll((selects) => {
+            const select = selects[0] as unknown as {
+              options: { value: string }[];
+            };
+            return [...select.options].map((o) => o.value);
+          });
 
-        const [response] = await Promise.all([
-          page.waitForResponse(
-            (r) => r.url().includes('composicion') && r.status() === 200,
-          ),
-          page.getByText('Composición histórica').first().click(),
-        ]);
+        for (const organType of organTypes) {
+          // Select the organ type
+          await Promise.all([
+            page.waitForLoadState('networkidle'),
+            page.locator('select').nth(1).selectOption(organType),
+          ]);
 
-        subscriber.next(response.url());
+          // Click "Exportar datos composición" and capture the destination URL
+          await Promise.all([
+            page.waitForURL((u) => !u.toString().includes('opendata/organos'), {
+              waitUntil: 'networkidle',
+            }),
+            page
+              .getByRole('button', { name: 'Exportar datos composición' })
+              .click(),
+          ]);
+
+          subscriber.next(page.url());
+
+          // Go back to the opendata page for the next iteration
+          await page.goto(`${BASE}/es/opendata/organos`, {
+            waitUntil: 'networkidle',
+          });
+        }
+
         subscriber.complete();
       } catch (cause) {
         subscriber.error(cause);

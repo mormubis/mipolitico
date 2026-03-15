@@ -18,27 +18,26 @@ const Schema = z.object({
   NombreOrgano: z.string(),
 });
 
-const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
+const retriever: Retriever<Model> = ({ browser, url, validationMode }) => {
   return new Observable((subscriber) => {
     void (async () => {
+      const page = await browser.newPage();
+
       try {
-        const response = await fetch(url, { method: 'POST' });
+        await page.goto(url, { waitUntil: 'networkidle' });
 
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch bureau data: ${String(response.status)} ${response.statusText}`,
-          );
-        }
+        // Click JSON export button and intercept the POST response
+        const [response] = await Promise.all([
+          page.waitForResponse(
+            (r) => r.url().includes('opendataExport') && r.status() === 200,
+          ),
+          page.getByRole('button', { name: 'JSON' }).click(),
+        ]);
 
-        if (response.body === null) {
-          throw new Error(
-            'Response body is null: no data stream available from bureau data endpoint',
-          );
-        }
-
+        const body = await response.body();
         const parser = validate(Schema, validationMode);
 
-        oboe(Readable.fromWeb(response.body))
+        oboe(Readable.from(body))
           .node('data.*', (item) => {
             const record = parser(item, url);
             if (record) subscriber.next(record);
@@ -55,6 +54,8 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
             cause,
           }),
         );
+      } finally {
+        await page.close();
       }
     })();
   });
