@@ -1,128 +1,59 @@
+import { Readable } from 'node:stream';
+import oboe from 'oboe';
 import { Observable } from 'rxjs';
+import { z } from 'zod';
 
-import { random } from '../utils.ts';
+import { validate } from '../utils.ts';
 
 import type { Retriever } from '../types.ts';
-import type { InterestDeclarationInput } from '@congress/database';
 
-interface BulkDeclarationRow {
-  NOMBRE: string;
-  FECHAREGISTRO: string;
-  DECLARACION: string;
-  TIPO: string;
-  PERIODO: string;
-  EMPLEADOR: string;
-  SECTOR: string;
-  DESCRIPCION: string;
-}
+type Model = z.infer<typeof Schema>;
 
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/,\s*/g, ' ').replace(/\s+/g, ' ').trim();
-}
+const Schema = z.object({
+  BENEFACTOR: z.string().optional(),
+  DECLARACION: z.string(),
+  DESCRIPCION: z.string().optional(),
+  DESTINATARIO: z.string().optional(),
+  EMPLEADOR: z.string().optional(),
+  FECHAREGISTRO: z.string(),
+  NOMBRE: z.string(),
+  OBSERVACIONES: z.string().optional(),
+  PERIODO: z.string().optional(),
+  SECTOR: z.string().optional(),
+  TIPO: z.string(),
+});
 
-function parsePeriodToDate(year: string): string {
-  return `${year.trim()}-01-01`;
-}
-
-function parsePeriod(periodo: string): {
-  startDate?: string;
-  endDate?: string;
-} {
-  const parts = periodo
-    .split('-')
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0 || parts[0] === undefined) return {};
-  if (parts.length === 1) return { startDate: parsePeriodToDate(parts[0]) };
-
-  const last = parts[parts.length - 1];
-
-  return {
-    startDate: parsePeriodToDate(parts[0]),
-    endDate: last !== undefined ? parsePeriodToDate(last) : undefined,
-  };
-}
-
-function mapActivities(
-  rows: BulkDeclarationRow[],
-): NonNullable<InterestDeclarationInput['PROFESSIONAL_ACTIVITIES']> {
-  return rows
-    .filter((r) => r.TIPO === 'ACTIVIDAD')
-    .map((r) => ({
-      entity: r.EMPLEADOR,
-      position: r.DESCRIPCION,
-      remunerated: r.SECTOR !== 'PÚBLICO',
-      ...parsePeriod(r.PERIODO),
-    }));
-}
-
-const retriever: Retriever<InterestDeclarationInput> = ({
-  browser,
-  fetch,
-  url,
-}) =>
-  new Observable((subscriber) => {
+const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
+  return new Observable((subscriber) => {
     void (async () => {
       try {
-        // Download the bulk declarations JSON
         const response = await fetch(url);
 
         if (!response.ok) {
-          subscriber.error(
-            new Error(
-              `[interestDeclarations] Failed to fetch docacteco JSON: ${response.status.toString()} ${response.statusText}`,
-            ),
+          throw new Error(
+            `Failed to fetch interest declarations data: ${String(response.status)} ${response.statusText}`,
           );
-          return;
         }
 
-        const rows = (await response.json()) as BulkDeclarationRow[];
-
-        // Group rows by normalised NOMBRE
-        const rowsByName = new Map<string, BulkDeclarationRow[]>();
-        for (const row of rows) {
-          const key = normalizeName(row.NOMBRE);
-          const existing = rowsByName.get(key) ?? [];
-          existing.push(row);
-          rowsByName.set(key, existing);
+        if (response.body === null) {
+          throw new Error(
+            'Response body is null: no data stream available from interest declarations endpoint',
+          );
         }
 
-        // For each deputy group, scrape their profile page for the PDF URL
-        for (const [normalizedName, deputyRows] of rowsByName) {
-          const page = await browser.newPage();
+        const parser = validate(Schema, validationMode);
 
-          try {
-            // Use a name-based search URL
-            const searchUrl = `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=S&nombre=${encodeURIComponent(normalizedName)}`;
-
-            await page.goto(searchUrl, { waitUntil: 'networkidle' });
-
-            const pdfUrl = await page
-              .getByText('Declaración de Intereses Económicos')
-              .first()
-              .getAttribute('href', { timeout: random(1000, 3000) })
-              .catch(() => undefined);
-
-            const activities = mapActivities(deputyRows);
-
-            subscriber.next({
-              DEPUTY_ID: normalizedName,
-              PDF_URL: pdfUrl ?? undefined,
-              PROFESSIONAL_ACTIVITIES:
-                activities.length > 0 ? activities : undefined,
-              YEAR: new Date().getFullYear(),
-            });
-          } catch (cause) {
-            console.warn(
-              `[validate] Skipping deputy ${normalizedName}: ${(cause as Error).message}`,
-            );
-          } finally {
-            await page.close().catch(() => undefined);
-          }
-        }
-
-        subscriber.complete();
+        oboe(Readable.fromWeb(response.body))
+          .node('!.*', (item) => {
+            const record = parser(item, url);
+            if (record) subscriber.next(record);
+          })
+          .done(() => {
+            subscriber.complete();
+          })
+          .fail((error) => {
+            subscriber.error(error);
+          });
       } catch (cause) {
         subscriber.error(
           new Error(`Failed to process ${url}: ${(cause as Error).message}`, {
@@ -132,6 +63,7 @@ const retriever: Retriever<InterestDeclarationInput> = ({
       }
     })();
   });
+};
 
-export type { BulkDeclarationRow };
-export { retriever };
+export type { Model };
+export { Schema, retriever };

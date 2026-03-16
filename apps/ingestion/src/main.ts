@@ -15,6 +15,7 @@ import {
 
 import { finder as bureauFinder } from './finders/bureau.ts';
 import { finder as initiativesFinder } from './finders/initiatives.ts';
+import { finder as interestDeclarationsDetailFinder } from './finders/interest-declarations-detail.ts';
 import { finder as interestDeclarationsFinder } from './finders/interest-declarations.ts';
 import { finder as interventionDetailFinder } from './finders/intervention-detail.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
@@ -26,6 +27,7 @@ import { processor as interestDeclarationsProcessor } from './processors/interes
 import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
+import { retriever as interestDeclarationsDetailRetriever } from './retrievers/interest-declarations-detail.ts';
 import { retriever as interestDeclarationsRetriever } from './retrievers/interest-declarations.ts';
 import { retriever as interventionDetailRetriever } from './retrievers/intervention-detail.ts';
 import { retriever as interventionRetriever } from './retrievers/intervention.ts';
@@ -106,6 +108,7 @@ const SCRAPER_TYPE_MAP: Record<string, string> = {
   'intervention-detail': 'speeches',
   'initiatives': 'initiatives',
   'interest-declarations': 'interestDeclarations',
+  'interest-declarations-detail': 'interestDeclarationsDetail',
 };
 
 // ---------------------------------------------------------------------------
@@ -165,6 +168,11 @@ async function runAll(
       finder: interestDeclarationsFinder,
       retriever: interestDeclarationsRetriever,
     },
+    {
+      name: 'interest-declarations-detail',
+      finder: interestDeclarationsDetailFinder,
+      retriever: interestDeclarationsDetailRetriever,
+    },
   ];
 
   const PIPELINES: PipelineEntry<unknown, unknown>[] = [
@@ -189,6 +197,10 @@ async function runAll(
         unknown,
         unknown
       >,
+      sink: persistInterestDeclarations(),
+    },
+    {
+      sources: ['interest-declarations-detail'],
       sink: persistInterestDeclarations(),
     },
   ];

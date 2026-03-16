@@ -2,13 +2,6 @@ import { Observable } from 'rxjs';
 
 import type { Finder } from '../types.ts';
 
-const INITIATIVES_CATEGORIES = [
-  'IniciativasLegislativasAprobadas',
-  'ProyectosDeLey',
-  'PropuestasDeReforma',
-  'ProposicionesDeLey',
-] as const;
-
 const finder: Finder = ({ browser }) =>
   new Observable<string>((subscriber) => {
     void (async () => {
@@ -19,21 +12,14 @@ const finder: Finder = ({ browser }) =>
           waitUntil: 'networkidle',
         });
 
-        for (const category of INITIATIVES_CATEGORIES) {
-          const link = await page
-            .locator(`a[href*="${category}"][href$="json"]`)
-            .first()
-            .getAttribute('href');
+        const links = await page
+          .locator('a[href*="/opendata/iniciativas/"][href$=".json"]')
+          .all();
 
-          if (!link) {
-            console.warn(
-              `[initiatives] Could not find link for category: ${category}`,
-            );
-            continue;
-          }
-
-          const url = new URL(link, 'https://www.congreso.es');
-          subscriber.next(url.href);
+        for (const link of links) {
+          const href = await link.getAttribute('href');
+          if (href)
+            {subscriber.next(new URL(href, 'https://www.congreso.es').href);}
         }
 
         subscriber.complete();
