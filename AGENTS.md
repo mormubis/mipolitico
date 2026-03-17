@@ -50,6 +50,54 @@ pnpm install                    # install all workspace dependencies
 
 ---
 
+## Ingestion Architecture Principles
+
+These principles were established through analysis of the finders and
+retrievers. Follow them when adding or modifying ingestion pipelines.
+
+### Finder contract
+
+- A finder emits **only URLs** — no fetching, filtering, business logic, or
+  database access. If it opens a browser page, it navigates, collects links, and
+  closes. Nothing more.
+- Finders scope to the **current legislature** by default. The page usually
+  handles this natively (labels like "de la legislatura actual"). If not, use
+  `CURRENT_LEGISLATURE` from `config/legislature.ts`.
+- Discover links **dynamically** from the page rather than hardcoding category
+  lists. Hardcoded lists silently miss new categories.
+
+### Finder/retriever split pattern
+
+- Follow the `person` / `person-detail` pattern when a source has both bulk
+  metadata and per-record detail pages:
+  - `{entity}` finder → single bulk JSON URL → `{entity}` retriever streams it
+    with `oboe`, emitting one record per row (no Playwright)
+  - `{entity}-detail` finder → one profile URL per record → `{entity}-detail`
+    retriever scrapes each page with Playwright for detail not in the bulk JSON
+- Before reaching for Playwright, **check the opendata page first**. Congress
+  often exposes full structured JSON (speaker, date, session, organ, timestamps,
+  video links) that makes HTML scraping unnecessary.
+
+### Retriever contract
+
+- A retriever receives one URL and emits one or more typed records. It does not
+  filter, watermark, or apply business logic — that belongs in a processor or
+  the pipeline orchestrator.
+- Bulk JSON retrievers use `oboe` streaming +
+  `validate(Schema, validationMode)`.
+- Playwright retrievers construct records manually and do not need `validate()`.
+- All `catch` blocks wrap errors with `new Error(\`Failed to process \${url}:
+  ...\`)`.
+
+### Avoiding duplication
+
+- If two pipelines scrape the same page for the same data, one of them is wrong.
+  Extract the shared scraping into a dedicated `{entity}-detail` pipeline.
+- Never scrape the same field from both a bulk JSON and a detail page — pick one
+  source of truth.
+
+---
+
 ## Pre-commit Hooks
 
 `lint-staged` runs on every commit (via Husky):
