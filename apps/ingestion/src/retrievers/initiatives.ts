@@ -3,10 +3,10 @@ import { Readable } from 'node:stream';
 import oboe from 'oboe';
 import { Observable } from 'rxjs';
 
+import { CURRENT_LEGISLATURE } from '../config/legislature.ts';
+
 import type { Retriever } from '../types.ts';
 import type { InitiativeInput } from '@congress/database';
-// TODO: Update legislature number when legislature XV ends (same as intervention/finder.ts)
-const CURRENT_LEGISLATURE = 15;
 
 const retriever: Retriever<InitiativeInput> = ({
   fetch,

@@ -66,9 +66,9 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
         for (const vote of votingData.votaciones) {
           const record = {
             byAssent: votingData.totales.asentimiento === 'Sí',
-            deputyGroup: (vote as Record<string, unknown>).grupo as string,
-            deputyName: (vote as Record<string, unknown>).diputado as string,
-            deputySeat: (vote as Record<string, unknown>).asiento as string,
+            deputyGroup: vote.grupo,
+            deputyName: vote.diputado,
+            deputySeat: vote.asiento,
             jsonUrl: url,
             legislature: votingData.informacion.legislatura,
             sessionNumber: votingData.informacion.sesion,
@@ -77,7 +77,7 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
             totalFor: votingData.totales.afavor,
             totalNoVote: votingData.totales.noVotan,
             totalPresent: votingData.totales.presentes,
-            vote: (vote as Record<string, unknown>).voto as string,
+            vote: vote.voto,
             votingDate: votingData.informacion.fecha,
             votingDescription: votingData.informacion.textoExpediente,
             votingNumber: votingData.informacion.numeroVotacion,
@@ -89,10 +89,10 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
         }
 
         subscriber.complete();
-      } catch (error) {
+      } catch (cause) {
         subscriber.error(
-          new Error(`Failed to process ${url}: ${(error as Error).message}`, {
-            cause: error,
+          new Error(`Failed to process ${url}: ${(cause as Error).message}`, {
+            cause,
           }),
         );
       }
