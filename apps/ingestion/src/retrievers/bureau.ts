@@ -10,12 +10,12 @@ import type { Retriever } from '../types.ts';
 type Model = z.infer<typeof Schema>;
 
 const Schema = z.object({
-  Cargo: z.string(),
-  FechaAlta: z.string(),
-  FechaBaja: z.string(),
-  Grupo: z.string(),
-  Nombre: z.string(),
-  NombreOrgano: z.string(),
+  endDate: z.string(),
+  group: z.string(),
+  name: z.string(),
+  organName: z.string(),
+  position: z.string(),
+  startDate: z.string(),
 });
 
 const retriever: Retriever<Model> = ({ browser, url, validationMode }) => {

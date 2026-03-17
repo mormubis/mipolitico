@@ -8,25 +8,25 @@ import type { Retriever } from '../types.ts';
 type Model = z.infer<typeof Schema>;
 
 const Schema = z.object({
-  CIRCUNSCRIPCION: z.number(),
-  COD_PARLAMENTARIO: z.number(),
-  DECLARACION_ACTIVIDADES_URL: z.string().optional(),
-  DECLARACION_BIENES_URL: z.string().optional(),
-  DECLARACION_INTERESES_URL: z.string().optional(),
-  EMAIL: z.string().optional(),
-  FACEBOOK: z.string().optional(),
-  FECHA_NACIMIENTO: z.string().optional(),
-  FORMACION: z.string().optional(),
-  FORMACIONELECTORAL: z.string().min(1),
-  FOTO_URL: z.string(),
-  GENERO: z.number(),
-  GRUPO: z.string(),
-  INSTAGRAM: z.string().optional(),
-  LEGISLATURAS: z.array(z.number()),
-  LINKEDIN: z.string().optional(),
-  NOMBRE: z.string(),
-  TWITTER: z.string().optional(),
-  WEB: z.string().optional(),
+  activitiesDeclarationUrl: z.string().optional(),
+  assetsDeclarationUrl: z.string().optional(),
+  birthDate: z.string().optional(),
+  codParlamentario: z.number(),
+  constituency: z.number(),
+  electoralFormation: z.string().min(1),
+  email: z.string().optional(),
+  facebook: z.string().optional(),
+  gender: z.number(),
+  interestsDeclarationUrl: z.string().optional(),
+  instagram: z.string().optional(),
+  legislatures: z.array(z.number()),
+  linkedin: z.string().optional(),
+  name: z.string(),
+  parliamentaryGroup: z.string(),
+  partyName: z.string().optional(),
+  photoUrl: z.string(),
+  twitter: z.string().optional(),
+  web: z.string().optional(),
 });
 
 const retriever: Retriever<Model> = ({ browser, url }) => {
@@ -43,18 +43,18 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
         await page.goto(url, { waitUntil: 'networkidle' });
 
         const [
-          DECLARACION_ACTIVIDADES_URL,
-          DECLARACION_BIENES_URL,
-          DECLARACION_INTERESES_URL,
-          EMAIL,
-          FACEBOOK,
-          FECHA_NACIMIENTO,
-          FOTO_URL,
-          INSTAGRAM,
-          LEGISLATURAS,
-          LINKEDIN,
-          TWITTER,
-          WEB,
+          activitiesDeclarationUrl,
+          assetsDeclarationUrl,
+          interestsDeclarationUrl,
+          email,
+          facebook,
+          birthDate,
+          photoUrl,
+          instagram,
+          legislatures,
+          linkedin,
+          twitter,
+          web,
         ] = await Promise.all([
           page
             .getByText('Declaración de Actividades')
@@ -150,28 +150,28 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
             .catch(() => undefined),
         ]);
 
-        const NOMBRE = await page
+        const name = await page
           .locator('h1')
           .first()
           .textContent()
           .then((t) => (t ?? '').trim())
           .catch(() => '');
 
-        const GRUPO = await page
+        const parliamentaryGroup = await page
           .locator('.grupo-parlamentario, [class*="grupo"]')
           .first()
           .textContent()
           .then((t) => (t ?? '').trim())
           .catch(() => '');
 
-        const FORMACION = await page
+        const partyName = await page
           .locator('.formacion, [class*="formacion"]')
           .first()
           .textContent()
           .then((t) => (t ?? '').trim())
           .catch(() => '');
 
-        const FORMACIONELECTORAL = await page
+        const electoralFormation = await page
           .locator('.siglas-partido')
           .first()
           .textContent()
@@ -179,29 +179,26 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
           .catch(() => '');
 
         subscriber.next({
-          CIRCUNSCRIPCION: 0,
-          COD_PARLAMENTARIO: codParlamentario,
+          activitiesDeclarationUrl: activitiesDeclarationUrl ?? undefined,
+          assetsDeclarationUrl: assetsDeclarationUrl ?? undefined,
+          birthDate,
+          codParlamentario,
+          constituency: 0,
+          electoralFormation,
+          email,
+          facebook,
+          gender: 0,
+          instagram,
+          interestsDeclarationUrl: interestsDeclarationUrl ?? undefined,
+          legislatures,
+          linkedin,
+          name,
+          parliamentaryGroup,
+          partyName,
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          DECLARACION_ACTIVIDADES_URL: DECLARACION_ACTIVIDADES_URL!,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          DECLARACION_BIENES_URL: DECLARACION_BIENES_URL!,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          DECLARACION_INTERESES_URL: DECLARACION_INTERESES_URL!,
-          EMAIL,
-          FACEBOOK,
-          FECHA_NACIMIENTO,
-          FORMACION,
-          FORMACIONELECTORAL,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          FOTO_URL: FOTO_URL!,
-          GENERO: 0,
-          GRUPO,
-          INSTAGRAM,
-          LEGISLATURAS,
-          LINKEDIN,
-          NOMBRE,
-          TWITTER,
-          WEB,
+          photoUrl: photoUrl!,
+          twitter,
+          web,
         });
 
         subscriber.complete();

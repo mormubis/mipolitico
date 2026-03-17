@@ -16,8 +16,9 @@ function parseSpanishDate(dateStr: string): Date | null {
     isNaN(day) ||
     isNaN(month) ||
     isNaN(year)
-  )
-    {return null;}
+  ) {
+    return null;
+  }
   return new Date(year, month - 1, day);
 }
 
@@ -40,7 +41,7 @@ export async function upsertSpeeches(
 
   await prisma.$transaction(async (tx) => {
     for (const data of validRecords) {
-      const sessionDate = parseSpanishDate(data.SESSION_DATE);
+      const sessionDate = parseSpanishDate(data.sessionDate);
       if (!sessionDate) {
         skipped++;
         continue;
@@ -50,7 +51,7 @@ export async function upsertSpeeches(
       const person = await tx.person.findFirst({
         where: {
           name: {
-            contains: data.SPEAKER_NAME,
+            contains: data.speakerName,
           },
         },
       });
@@ -58,30 +59,30 @@ export async function upsertSpeeches(
       await tx.speech.upsert({
         where: {
           sessionId_orderInSession: {
-            sessionId: data.SESSION_ID,
-            orderInSession: data.ORDER,
+            sessionId: data.sessionId,
+            orderInSession: data.order,
           },
         },
         create: {
           personId: person?.id ?? null,
-          sessionId: data.SESSION_ID,
+          sessionId: data.sessionId,
           sessionDate,
-          sessionTitle: data.SESSION_TITLE,
-          sessionUrl: data.SESSION_URL,
-          speakerRaw: data.SPEAKER,
-          speakerName: data.SPEAKER_NAME,
-          speakerRole: data.SPEAKER_ROLE ?? null,
-          text: data.TEXT,
-          orderInSession: data.ORDER,
+          sessionTitle: data.sessionTitle,
+          sessionUrl: data.sessionUrl,
+          speakerRaw: data.speaker,
+          speakerName: data.speakerName,
+          speakerRole: data.speakerRole ?? null,
+          text: data.text,
+          orderInSession: data.order,
         },
         update: {
           personId: person?.id ?? null,
           sessionDate,
-          sessionTitle: data.SESSION_TITLE,
-          speakerRaw: data.SPEAKER,
-          speakerName: data.SPEAKER_NAME,
-          speakerRole: data.SPEAKER_ROLE ?? null,
-          text: data.TEXT,
+          sessionTitle: data.sessionTitle,
+          speakerRaw: data.speaker,
+          speakerName: data.speakerName,
+          speakerRole: data.speakerRole ?? null,
+          text: data.text,
         },
       });
 

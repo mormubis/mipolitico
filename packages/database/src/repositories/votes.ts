@@ -15,8 +15,9 @@ function parseVotingDate(dateStr: string): Date | null {
     isNaN(day) ||
     isNaN(month) ||
     isNaN(year)
-  )
-    {return null;}
+  ) {
+    return null;
+  }
   return new Date(year, month - 1, day);
 }
 
@@ -59,23 +60,23 @@ export async function upsertVotingRecords(
     }
 
     const data = result.data;
-    const sessionKey = `${String(data.LEGISLATURE)}-${String(data.SESSION_NUMBER)}-${String(data.VOTING_NUMBER)}`;
+    const sessionKey = `${String(data.legislature)}-${String(data.sessionNumber)}-${String(data.votingNumber)}`;
 
     if (!sessionMap.has(sessionKey)) {
       sessionMap.set(sessionKey, {
-        legislature: data.LEGISLATURE,
-        sessionNumber: data.SESSION_NUMBER,
-        votingNumber: data.VOTING_NUMBER,
-        votingDate: parseVotingDate(data.VOTING_DATE),
-        title: data.VOTING_TITLE,
-        description: data.VOTING_DESCRIPTION,
-        byAssent: data.BY_ASSENT,
-        totalPresent: data.TOTAL_PRESENT,
-        totalFor: data.TOTAL_FOR,
-        totalAgainst: data.TOTAL_AGAINST,
-        totalAbstention: data.TOTAL_ABSTENTION,
-        totalNoVote: data.TOTAL_NO_VOTE,
-        sourceUrl: data.JSON_URL,
+        legislature: data.legislature,
+        sessionNumber: data.sessionNumber,
+        votingNumber: data.votingNumber,
+        votingDate: parseVotingDate(data.votingDate),
+        title: data.votingTitle,
+        description: data.votingDescription,
+        byAssent: data.byAssent,
+        totalPresent: data.totalPresent,
+        totalFor: data.totalFor,
+        totalAgainst: data.totalAgainst,
+        totalAbstention: data.totalAbstention,
+        totalNoVote: data.totalNoVote,
+        sourceUrl: data.jsonUrl,
         votes: [],
       });
     }
@@ -83,10 +84,10 @@ export async function upsertVotingRecords(
     const sessionGroup = sessionMap.get(sessionKey);
     if (sessionGroup) {
       sessionGroup.votes.push({
-        deputySeat: data.DEPUTY_SEAT,
-        deputyName: data.DEPUTY_NAME,
-        deputyGroup: data.DEPUTY_GROUP,
-        vote: data.VOTE,
+        deputySeat: data.deputySeat,
+        deputyName: data.deputyName,
+        deputyGroup: data.deputyGroup,
+        vote: data.vote,
       });
     }
   }

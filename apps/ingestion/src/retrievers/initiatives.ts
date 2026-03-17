@@ -34,7 +34,7 @@ const retriever: Retriever<InitiativeInput> = ({
           .node('!.*', (item: unknown) => {
             const result = InitiativeInputSchema.safeParse({
               ...(item as Record<string, unknown>),
-              LEGISLATURE: CURRENT_LEGISLATURE,
+              legislature: CURRENT_LEGISLATURE,
             });
             if (result.success) {
               subscriber.next(result.data);

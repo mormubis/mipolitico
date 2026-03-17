@@ -97,29 +97,29 @@ export async function upsertInitiatives(
     else approved.push(r);
   }
 
-  // First pass: upsert parliamentary bills by expedienteNumero
+  // First pass: upsert parliamentary bills by fileNumber
   await prisma.$transaction(async (tx) => {
     for (const data of parliamentary) {
       await tx.initiative.upsert({
         where: {
           legislature_expedienteNumero: {
-            legislature: data.LEGISLATURE,
-            expedienteNumero: data.NUMEXPEDIENTE,
+            legislature: data.legislature,
+            expedienteNumero: data.fileNumber,
           },
         },
         create: {
-          legislature: data.LEGISLATURE,
-          tipo: data.TIPO,
-          title: data.OBJETO,
-          expedienteNumero: data.NUMEXPEDIENTE,
-          situacion: data.SITUACIONACTUAL ?? null,
-          resultadoTramitacion: data.RESULTADOTRAMITACION ?? null,
+          legislature: data.legislature,
+          tipo: data.type,
+          title: data.subject,
+          expedienteNumero: data.fileNumber,
+          situacion: data.currentStatus ?? null,
+          resultadoTramitacion: data.processingResult ?? null,
         },
         update: {
-          tipo: data.TIPO,
-          title: data.OBJETO,
-          situacion: data.SITUACIONACTUAL ?? null,
-          resultadoTramitacion: data.RESULTADOTRAMITACION ?? null,
+          tipo: data.type,
+          title: data.subject,
+          situacion: data.currentStatus ?? null,
+          resultadoTramitacion: data.processingResult ?? null,
         },
       });
       success++;
@@ -132,27 +132,27 @@ export async function upsertInitiatives(
       await tx.initiative.upsert({
         where: {
           legislature_bulletinNumber: {
-            legislature: data.LEGISLATURE,
-            bulletinNumber: data.NUMERO_BOLETIN,
+            legislature: data.legislature,
+            bulletinNumber: data.bulletinNumber,
           },
         },
         create: {
-          legislature: data.LEGISLATURE,
-          tipo: data.TIPO,
-          title: data.TITULO_LEY,
-          bulletinNumber: data.NUMERO_BOLETIN,
-          number: data.NUMERO_LEY ?? null,
-          bulletinDate: parseDate(data.FECHA_BOLETIN),
-          enactedDate: parseDate(data.FECHA_LEY),
-          pdfUrl: data.PDF ?? null,
+          legislature: data.legislature,
+          tipo: data.type,
+          title: data.lawTitle,
+          bulletinNumber: data.bulletinNumber,
+          number: data.lawNumber ?? null,
+          bulletinDate: parseDate(data.bulletinDate),
+          enactedDate: parseDate(data.lawDate),
+          pdfUrl: data.pdf ?? null,
         },
         update: {
-          tipo: data.TIPO,
-          title: data.TITULO_LEY,
-          number: data.NUMERO_LEY ?? null,
-          bulletinDate: parseDate(data.FECHA_BOLETIN),
-          enactedDate: parseDate(data.FECHA_LEY),
-          pdfUrl: data.PDF ?? null,
+          tipo: data.type,
+          title: data.lawTitle,
+          number: data.lawNumber ?? null,
+          bulletinDate: parseDate(data.bulletinDate),
+          enactedDate: parseDate(data.lawDate),
+          pdfUrl: data.pdf ?? null,
         },
       });
       success++;
@@ -163,13 +163,13 @@ export async function upsertInitiatives(
   // parliamentary bills to populate bulletinNumber, number, enactedDate, pdfUrl.
   // Reales decretos are skipped — they have no parliamentary counterpart.
   const enrichable = approved.filter(
-    (a) => a.TIPO === 'Leyes' || a.TIPO === 'Leyes orgánicas',
+    (a) => a.type === 'Leyes' || a.type === 'Leyes orgánicas',
   );
 
   if (enrichable.length > 0) {
     // All enrichable records share the same legislature (same ingestion batch).
     // Safe to use at(0) here — we are inside the enrichable.length > 0 guard.
-    const legislature = enrichable.at(0)?.LEGISLATURE ?? 0;
+    const legislature = enrichable.at(0)?.legislature ?? 0;
     // Fetch all closed parliamentary bills without bulletinNumber for this legislature
     const closedBills = await prisma.initiative.findMany({
       where: {
@@ -183,7 +183,7 @@ export async function upsertInitiatives(
 
     await prisma.$transaction(async (tx) => {
       for (const approvedLaw of enrichable) {
-        const normApproved = normalizeApprovedTitle(approvedLaw.TITULO_LEY);
+        const normApproved = normalizeApprovedTitle(approvedLaw.lawTitle);
 
         let bestId: string | null = null;
         let bestScore = 0;
@@ -201,16 +201,16 @@ export async function upsertInitiatives(
           await tx.initiative.update({
             where: { id: bestId },
             data: {
-              bulletinNumber: approvedLaw.NUMERO_BOLETIN,
-              number: approvedLaw.NUMERO_LEY ?? null,
-              bulletinDate: parseDate(approvedLaw.FECHA_BOLETIN),
-              enactedDate: parseDate(approvedLaw.FECHA_LEY),
-              pdfUrl: approvedLaw.PDF ?? null,
+              bulletinNumber: approvedLaw.bulletinNumber,
+              number: approvedLaw.lawNumber ?? null,
+              bulletinDate: parseDate(approvedLaw.bulletinDate),
+              enactedDate: parseDate(approvedLaw.lawDate),
+              pdfUrl: approvedLaw.pdf ?? null,
             },
           });
         } else {
           console.warn(
-            `[initiatives] Could not enrich "${approvedLaw.TITULO_LEY.substring(0, 60)}" — best score: ${String(Math.round(bestScore * 100))}%`,
+            `[initiatives] Could not enrich "${approvedLaw.lawTitle.substring(0, 60)}" — best score: ${String(Math.round(bestScore * 100))}%`,
           );
         }
       }

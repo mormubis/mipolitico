@@ -362,13 +362,13 @@ async function main(): Promise<void> {
       const rec = r as Record<string, unknown>;
       assert(
         'interest-declarations',
-        typeof rec.DEPUTY_ID === 'string' && rec.DEPUTY_ID.length > 0,
-        'DEPUTY_ID should be a non-empty string',
+        typeof rec.nombre === 'string' && rec.nombre.length > 0,
+        'nombre should be a non-empty string',
       );
       assert(
         'interest-declarations',
-        typeof rec.YEAR === 'number',
-        'YEAR should be a number',
+        typeof rec.tipo === 'string',
+        'tipo should be a string',
       );
     }
   } finally {

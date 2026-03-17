@@ -2,76 +2,76 @@ import { z } from 'zod';
 
 // Input schema for person.ts scraper output
 export const PersonInputSchema = z.object({
-  BIOGRAFIA: z.string(),
-  CIRCUNSCRIPCION: z.string(),
-  FECHAALTA: z.string(),
-  FECHAALTAENGRUPOPARLAMENTARIO: z.string(),
-  FECHACONDICIONPLENA: z.string(),
-  FORMACIONELECTORAL: z.string(),
-  GRUPOPARLAMENTARIO: z.string(),
-  NOMBRE: z.string(),
+  biography: z.string(),
+  constituency: z.string(),
+  electoralFormation: z.string(),
+  fullConditionDate: z.string(),
+  groupStartDate: z.string(),
+  name: z.string(),
+  parliamentaryGroup: z.string(),
+  startDate: z.string(),
 });
 export type PersonInput = z.infer<typeof PersonInputSchema>;
 
 // Input schema for voting.ts scraper output
 export const VotingInputSchema = z.object({
-  LEGISLATURE: z.number(),
-  SESSION_NUMBER: z.number(),
-  VOTING_NUMBER: z.number(),
-  VOTING_DATE: z.string(),
-  VOTING_TITLE: z.string(),
-  VOTING_DESCRIPTION: z.string(),
-  BY_ASSENT: z.boolean(),
-  TOTAL_PRESENT: z.number(),
-  TOTAL_FOR: z.number(),
-  TOTAL_AGAINST: z.number(),
-  TOTAL_ABSTENTION: z.number(),
-  TOTAL_NO_VOTE: z.number(),
-  DEPUTY_SEAT: z.string(),
-  DEPUTY_NAME: z.string(),
-  DEPUTY_GROUP: z.string(),
-  VOTE: z.string(),
-  JSON_URL: z.string(),
+  byAssent: z.boolean(),
+  deputyGroup: z.string(),
+  deputyName: z.string(),
+  deputySeat: z.string(),
+  jsonUrl: z.string(),
+  legislature: z.number(),
+  sessionNumber: z.number(),
+  totalAbstention: z.number(),
+  totalAgainst: z.number(),
+  totalFor: z.number(),
+  totalNoVote: z.number(),
+  totalPresent: z.number(),
+  vote: z.string(),
+  votingDate: z.string(),
+  votingDescription: z.string(),
+  votingNumber: z.number(),
+  votingTitle: z.string(),
 });
 export type VotingInput = z.infer<typeof VotingInputSchema>;
 
 // Input schema for intervention.ts scraper output
 export const SpeechInputSchema = z.object({
-  ORDER: z.number(),
-  SESSION_DATE: z.string(),
-  SESSION_ID: z.string(),
-  SESSION_TITLE: z.string(),
-  SESSION_URL: z.string(),
-  SPEAKER: z.string(),
-  SPEAKER_NAME: z.string(),
-  SPEAKER_ROLE: z.string().optional(),
-  TEXT: z.string(),
+  order: z.number(),
+  sessionDate: z.string(),
+  sessionId: z.string(),
+  sessionTitle: z.string(),
+  sessionUrl: z.string(),
+  speaker: z.string(),
+  speakerName: z.string(),
+  speakerRole: z.string().optional(),
+  text: z.string(),
 });
 export type SpeechInput = z.infer<typeof SpeechInputSchema>;
 
 // Input schema for bureau.ts scraper output
 export const BureauInputSchema = z.object({
-  Cargo: z.string(),
-  FechaAlta: z.string(),
-  FechaBaja: z.string(),
-  Grupo: z.string(),
-  Nombre: z.string(),
-  NombreOrgano: z.string(),
+  endDate: z.string(),
+  group: z.string(),
+  name: z.string(),
+  organName: z.string(),
+  position: z.string(),
+  startDate: z.string(),
 });
 export type BureauInput = z.infer<typeof BureauInputSchema>;
 
 // Parliamentary bill (ProyectosDeLey, ProposicionesDeLey, PropuestasDeReforma)
 export const ParliamentaryInitiativeSchema = z.object({
-  LEGISLATURE: z.number().int(),
-  TIPO: z.string(),
-  NUMEXPEDIENTE: z.string().min(1),
-  OBJETO: z.string(),
-  SITUACIONACTUAL: z.string().optional(),
-  RESULTADOTRAMITACION: z.string().optional(),
-  // FECHAPRESENTACION is validated but not stored — the Initiative model does
+  // presentationDate is validated but not stored — the Initiative model does
   // not have a presentedDate field. Add one if parliamentary submission dates
   // become relevant for analytics.
-  FECHAPRESENTACION: z.string().optional(),
+  currentStatus: z.string().optional(),
+  fileNumber: z.string().min(1),
+  legislature: z.number().int(),
+  presentationDate: z.string().optional(),
+  processingResult: z.string().optional(),
+  subject: z.string(),
+  type: z.string(),
 });
 export type ParliamentaryInitiativeInput = z.infer<
   typeof ParliamentaryInitiativeSchema
@@ -79,14 +79,14 @@ export type ParliamentaryInitiativeInput = z.infer<
 
 // Approved law / Real decreto (IniciativasLegislativasAprobadas)
 export const ApprovedLawSchema = z.object({
-  LEGISLATURE: z.number().int(),
-  TIPO: z.string(),
-  TITULO_LEY: z.string(),
-  NUMERO_BOLETIN: z.string().min(1),
-  NUMERO_LEY: z.string().optional(),
-  FECHA_BOLETIN: z.string().optional(),
-  FECHA_LEY: z.string().optional(),
-  PDF: z.string().optional(),
+  bulletinDate: z.string().optional(),
+  bulletinNumber: z.string().min(1),
+  lawDate: z.string().optional(),
+  lawNumber: z.string().optional(),
+  lawTitle: z.string(),
+  legislature: z.number().int(),
+  pdf: z.string().optional(),
+  type: z.string(),
 });
 export type ApprovedLawInput = z.infer<typeof ApprovedLawSchema>;
 
@@ -143,15 +143,15 @@ export const SecurityInputSchema = z.object({
 });
 
 export const InterestDeclarationInputSchema = z.object({
-  BANK_ACCOUNTS: z.array(BankAccountInputSchema).optional(),
-  DEPUTY_ID: z.string(),
-  INCOME_SOURCES: z.array(IncomeSourceInputSchema).optional(),
-  MOVABLE_ASSETS: z.array(MovableAssetInputSchema).optional(),
-  PDF_URL: z.string().optional(),
-  PROFESSIONAL_ACTIVITIES: z.array(ProfessionalActivityInputSchema).optional(),
-  REAL_ESTATE: z.array(RealEstateAssetInputSchema).optional(),
-  SECURITIES: z.array(SecurityInputSchema).optional(),
-  YEAR: z.number().int(),
+  bankAccounts: z.array(BankAccountInputSchema).optional(),
+  deputyId: z.string(),
+  incomeSources: z.array(IncomeSourceInputSchema).optional(),
+  movableAssets: z.array(MovableAssetInputSchema).optional(),
+  pdfUrl: z.string().optional(),
+  professionalActivities: z.array(ProfessionalActivityInputSchema).optional(),
+  realEstate: z.array(RealEstateAssetInputSchema).optional(),
+  securities: z.array(SecurityInputSchema).optional(),
+  year: z.number().int(),
 });
 export type InterestDeclarationInput = z.infer<
   typeof InterestDeclarationInputSchema

@@ -23,13 +23,13 @@ export async function upsertInterestDeclaration(
 
   await prisma.$transaction(async (tx) => {
     const declaration = await tx.interestDeclaration.upsert({
-      where: { deputyId_year: { deputyId: data.DEPUTY_ID, year: data.YEAR } },
+      where: { deputyId_year: { deputyId: data.deputyId, year: data.year } },
       create: {
-        deputyId: data.DEPUTY_ID,
-        pdfUrl: data.PDF_URL ?? null,
-        year: data.YEAR,
+        deputyId: data.deputyId,
+        pdfUrl: data.pdfUrl ?? null,
+        year: data.year,
       },
-      update: { pdfUrl: data.PDF_URL ?? null },
+      update: { pdfUrl: data.pdfUrl ?? null },
     });
 
     const id = declaration.id;
@@ -42,24 +42,24 @@ export async function upsertInterestDeclaration(
     await tx.realEstateAsset.deleteMany({ where: { declarationId: id } });
     await tx.security.deleteMany({ where: { declarationId: id } });
 
-    if (data.BANK_ACCOUNTS?.length) {
+    if (data.bankAccounts?.length) {
       await tx.bankAccount.createMany({
-        data: data.BANK_ACCOUNTS.map((r) => ({ declarationId: id, ...r })),
+        data: data.bankAccounts.map((r) => ({ declarationId: id, ...r })),
       });
     }
-    if (data.INCOME_SOURCES?.length) {
+    if (data.incomeSources?.length) {
       await tx.incomeSource.createMany({
-        data: data.INCOME_SOURCES.map((r) => ({ declarationId: id, ...r })),
+        data: data.incomeSources.map((r) => ({ declarationId: id, ...r })),
       });
     }
-    if (data.MOVABLE_ASSETS?.length) {
+    if (data.movableAssets?.length) {
       await tx.movableAsset.createMany({
-        data: data.MOVABLE_ASSETS.map((r) => ({ declarationId: id, ...r })),
+        data: data.movableAssets.map((r) => ({ declarationId: id, ...r })),
       });
     }
-    if (data.PROFESSIONAL_ACTIVITIES?.length) {
+    if (data.professionalActivities?.length) {
       await tx.professionalActivity.createMany({
-        data: data.PROFESSIONAL_ACTIVITIES.map((r) => ({
+        data: data.professionalActivities.map((r) => ({
           declarationId: id,
           endDate: parseOptionalDate(r.endDate),
           entity: r.entity,
@@ -69,14 +69,14 @@ export async function upsertInterestDeclaration(
         })),
       });
     }
-    if (data.REAL_ESTATE?.length) {
+    if (data.realEstate?.length) {
       await tx.realEstateAsset.createMany({
-        data: data.REAL_ESTATE.map((r) => ({ declarationId: id, ...r })),
+        data: data.realEstate.map((r) => ({ declarationId: id, ...r })),
       });
     }
-    if (data.SECURITIES?.length) {
+    if (data.securities?.length) {
       await tx.security.createMany({
-        data: data.SECURITIES.map((r) => ({ declarationId: id, ...r })),
+        data: data.securities.map((r) => ({ declarationId: id, ...r })),
       });
     }
   });

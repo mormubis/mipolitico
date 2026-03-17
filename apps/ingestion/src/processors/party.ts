@@ -6,11 +6,11 @@ import type { PartyInput } from '@congress/database';
 import type { OperatorFunction } from 'rxjs';
 
 interface PersonModel {
-  FORMACIONELECTORAL: string;
+  electoralFormation: string;
 }
 interface PersonDetailModel {
-  FORMACION: string;
-  FORMACIONELECTORAL: string;
+  electoralFormation: string;
+  partyName?: string;
 }
 type Input = PersonModel | PersonDetailModel;
 
@@ -22,13 +22,13 @@ interface PartialParty {
   parentShortName?: string;
 }
 
-function hasFormacion(input: Input): input is PersonDetailModel {
-  return 'FORMACION' in input && typeof input.FORMACION === 'string';
+function hasPartyName(input: Input): input is PersonDetailModel {
+  return 'partyName' in input && typeof input.partyName === 'string';
 }
 
 const processor: OperatorFunction<Input, PartyInput> = pipe(
   reduce((acc, record) => {
-    const shortName = record.FORMACIONELECTORAL.trim();
+    const shortName = record.electoralFormation.trim();
     if (!shortName) return acc;
 
     const existing = acc.get(shortName) ?? {
@@ -36,8 +36,8 @@ const processor: OperatorFunction<Input, PartyInput> = pipe(
       parentShortName: PARTY_PARENTS[shortName],
     };
 
-    if (hasFormacion(record) && record.FORMACION.trim()) {
-      existing.name = record.FORMACION.trim();
+    if (hasPartyName(record) && record.partyName?.trim()) {
+      existing.name = record.partyName.trim();
     }
 
     acc.set(shortName, existing);

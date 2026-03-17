@@ -6,15 +6,15 @@ import type { Retriever } from '../types.ts';
 type Model = z.infer<typeof Schema>;
 
 const Schema = z.object({
-  ORDER: z.number(),
-  SESSION_DATE: z.string(),
-  SESSION_ID: z.string(),
-  SESSION_TITLE: z.string(),
-  SESSION_URL: z.string(),
-  SPEAKER: z.string(),
-  SPEAKER_NAME: z.string(),
-  SPEAKER_ROLE: z.string().optional(),
-  TEXT: z.string(),
+  order: z.number(),
+  sessionDate: z.string(),
+  sessionId: z.string(),
+  sessionTitle: z.string(),
+  sessionUrl: z.string(),
+  speaker: z.string(),
+  speakerName: z.string(),
+  speakerRole: z.string().optional(),
+  text: z.string(),
 });
 
 const retriever: Retriever<Model> = ({ browser, url }) => {
@@ -61,15 +61,15 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
 
           if (interventionText) {
             subscriber.next({
-              ORDER: order,
-              SESSION_DATE: sessionDate,
-              SESSION_ID: sessionId,
-              SESSION_TITLE: sessionTitle,
-              SESSION_URL: url,
-              SPEAKER: speakerRaw,
-              SPEAKER_NAME: speakerName,
-              SPEAKER_ROLE: roleMatch?.[1],
-              TEXT: interventionText,
+              order,
+              sessionDate,
+              sessionId,
+              sessionTitle,
+              sessionUrl: url,
+              speaker: speakerRaw,
+              speakerName,
+              speakerRole: roleMatch?.[1],
+              text: interventionText,
             });
             order++;
           }

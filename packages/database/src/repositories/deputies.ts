@@ -17,8 +17,9 @@ function parseSpanishDate(dateStr: string): Date | null {
     isNaN(day) ||
     isNaN(month) ||
     isNaN(year)
-  )
-    {return null;}
+  ) {
+    return null;
+  }
   return new Date(year, month - 1, day);
 }
 
@@ -47,13 +48,13 @@ export async function upsertDeputies(
     for (const data of validRecords) {
       // Upsert person first
       const person = await tx.person.upsert({
-        where: { name: data.NOMBRE },
-        create: { name: data.NOMBRE, biography: data.BIOGRAFIA },
-        update: { biography: data.BIOGRAFIA },
+        where: { name: data.name },
+        create: { name: data.name, biography: data.biography },
+        update: { biography: data.biography },
       });
 
       // Upsert deputy record
-      const startDate = parseSpanishDate(data.FECHAALTA);
+      const startDate = parseSpanishDate(data.startDate);
       if (!startDate) {
         skipped++;
         continue;
@@ -68,22 +69,22 @@ export async function upsertDeputies(
         },
         create: {
           personId: person.id,
-          constituency: data.CIRCUNSCRIPCION,
+          constituency: data.constituency,
           startDate,
-          fullConditionDate: data.FECHACONDICIONPLENA
-            ? parseSpanishDate(data.FECHACONDICIONPLENA)
+          fullConditionDate: data.fullConditionDate
+            ? parseSpanishDate(data.fullConditionDate)
             : null,
-          parliamentaryGroup: data.GRUPOPARLAMENTARIO,
-          electoralFormation: data.FORMACIONELECTORAL,
+          parliamentaryGroup: data.parliamentaryGroup,
+          electoralFormation: data.electoralFormation,
           legislature,
         },
         update: {
-          constituency: data.CIRCUNSCRIPCION,
-          fullConditionDate: data.FECHACONDICIONPLENA
-            ? parseSpanishDate(data.FECHACONDICIONPLENA)
+          constituency: data.constituency,
+          fullConditionDate: data.fullConditionDate
+            ? parseSpanishDate(data.fullConditionDate)
             : null,
-          parliamentaryGroup: data.GRUPOPARLAMENTARIO,
-          electoralFormation: data.FORMACIONELECTORAL,
+          parliamentaryGroup: data.parliamentaryGroup,
+          electoralFormation: data.electoralFormation,
         },
       });
 

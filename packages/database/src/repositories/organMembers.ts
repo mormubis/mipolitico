@@ -8,8 +8,9 @@ function parseSpanishDate(dateStr: string): Date | null {
   if (!dateStr || dateStr.trim() === '') return null;
   const parts = dateStr.split('/').map(Number);
   const [day, month, year] = parts;
-  if (day === undefined || month === undefined || year === undefined)
-    {return null;}
+  if (day === undefined || month === undefined || year === undefined) {
+    return null;
+  }
   return new Date(year, month - 1, day);
 }
 
@@ -21,8 +22,9 @@ function deriveOrganType(organName: string): string {
   if (
     name.includes('diputación permanente') ||
     name.includes('diputacion permanente')
-  )
-    {return 'DIPUTACION_PERMANENTE';}
+  ) {
+    return 'DIPUTACION_PERMANENTE';
+  }
   return 'OTHER';
 }
 
@@ -45,42 +47,42 @@ export async function upsertOrganMembers(
 
   await prisma.$transaction(async (tx) => {
     for (const data of validRecords) {
-      const startDate = parseSpanishDate(data.FechaAlta);
+      const startDate = parseSpanishDate(data.startDate);
       if (!startDate) {
         skipped++;
         continue;
       }
 
       const person = await tx.person.findUnique({
-        where: { name: data.Nombre },
+        where: { name: data.name },
       });
 
-      const organType = deriveOrganType(data.NombreOrgano);
+      const organType = deriveOrganType(data.organName);
 
       await tx.organMember.upsert({
         where: {
           name_organ_position_startDate: {
-            name: data.Nombre,
-            organ: data.NombreOrgano,
-            position: data.Cargo,
+            name: data.name,
+            organ: data.organName,
+            position: data.position,
             startDate,
           },
         },
         create: {
           personId: person?.id ?? null,
-          name: data.Nombre,
-          position: data.Cargo,
-          organ: data.NombreOrgano,
+          name: data.name,
+          position: data.position,
+          organ: data.organName,
           organType,
-          partyGroup: data.Grupo,
+          partyGroup: data.group,
           startDate,
-          endDate: parseSpanishDate(data.FechaBaja),
+          endDate: parseSpanishDate(data.endDate),
         },
         update: {
           personId: person?.id ?? null,
           organType,
-          partyGroup: data.Grupo,
-          endDate: parseSpanishDate(data.FechaBaja),
+          partyGroup: data.group,
+          endDate: parseSpanishDate(data.endDate),
         },
       });
 
