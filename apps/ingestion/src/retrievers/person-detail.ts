@@ -8,18 +8,12 @@ import type { Retriever } from '../types.ts';
 type Model = z.infer<typeof Schema>;
 
 const Schema = z.object({
-  activitiesDeclarationUrl: z.string().optional(),
-  assetsDeclarationUrl: z.string().optional(),
   birthDate: z.string().optional(),
   codParlamentario: z.number(),
-  constituency: z.number(),
   electoralFormation: z.string().min(1),
   email: z.string().optional(),
   facebook: z.string().optional(),
-  gender: z.number(),
-  interestsDeclarationUrl: z.string().optional(),
   instagram: z.string().optional(),
-  legislatures: z.array(z.number()),
   linkedin: z.string().optional(),
   name: z.string(),
   parliamentaryGroup: z.string(),
@@ -43,46 +37,35 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
         await page.goto(url, { waitUntil: 'networkidle' });
 
         const [
-          activitiesDeclarationUrl,
-          assetsDeclarationUrl,
-          interestsDeclarationUrl,
+          birthDate,
+          electoralFormation,
           email,
           facebook,
-          birthDate,
-          photoUrl,
           instagram,
-          legislatures,
           linkedin,
+          name,
+          parliamentaryGroup,
+          partyName,
+          photoUrl,
           twitter,
           web,
         ] = await Promise.all([
           page
-            .getByText('Declaración de Actividades')
+            .locator('text=/Nacid[oa] el/')
             .first()
-            .getAttribute('href', { timeout: random(1000, 3000) })
-            .catch((error: unknown) => {
-              throw new Error(
-                `Failed to extract Declaración de Actividades URL: ${(error as Error).message}`,
-              );
-            }),
+            .textContent({ timeout: random(1000, 3000) })
+            .then((textContent) => {
+              const [date = undefined] =
+                /\d{2}\/\d{2}\/\d{4}/.exec(textContent ?? '') ?? [];
+              return date;
+            })
+            .catch(() => undefined),
           page
-            .getByText('Declaración de Bienes y Rentas')
+            .locator('.siglas-partido')
             .first()
-            .getAttribute('href', { timeout: random(1000, 3000) })
-            .catch((error: unknown) => {
-              throw new Error(
-                `Failed to extract Declaración de Bienes y Rentas URL: ${(error as Error).message}`,
-              );
-            }),
-          page
-            .getByText('Declaración de Intereses Económicos')
-            .first()
-            .getAttribute('href', { timeout: random(1000, 3000) })
-            .catch((error: unknown) => {
-              throw new Error(
-                `Failed to extract Declaración de Intereses Económicos URL: ${(error as Error).message}`,
-              );
-            }),
+            .textContent()
+            .then((t) => (t ?? '').trim())
+            .catch(() => ''),
           page
             .locator('a[href^="mailto:"]')
             .first()
@@ -95,47 +78,42 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
             .then((link) => link ?? undefined)
             .catch(() => undefined),
           page
-            .locator('text=/Nacid[oa] el/')
-            .first()
-            .textContent({ timeout: random(1000, 3000) })
-            .then((textContent) => {
-              const [date = undefined] =
-                /\d{2}\/\d{2}\/\d{4}/.exec(textContent ?? '') ?? [];
-              return date;
-            })
-            .catch(() => undefined),
-          page
-            .locator('img[alt="Card image cap"]')
-            .first()
-            .getAttribute('src', { timeout: random(1000, 3000) })
-            .catch(() => {
-              throw new Error('Failed to extract Foto URL');
-            }),
-          page
             .locator('a:has(img[alt="instagram"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
           page
-            .locator('#_diputadomodule_legislaturasDiputado option')
-            .all()
-            .then((options) =>
-              Promise.all(
-                options.map((option) =>
-                  option
-                    .getAttribute('value', { timeout: random(1000, 3000) })
-                    .then(Number),
-                ),
-              ),
-            )
-            .catch(() => [] as number[]),
-          page
             .locator('a:has(img[alt="linkedin"])')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
+          page
+            .locator('h1')
+            .first()
+            .textContent()
+            .then((t) => (t ?? '').trim())
+            .catch(() => ''),
+          page
+            .locator('.grupo-parlamentario, [class*="grupo"]')
+            .first()
+            .textContent()
+            .then((t) => (t ?? '').trim())
+            .catch(() => ''),
+          page
+            .locator('.formacion, [class*="formacion"]')
+            .first()
+            .textContent()
+            .then((t) => (t ?? '').trim())
+            .catch(() => ''),
+          page
+            .locator('img[alt="Card image cap"]')
+            .first()
+            .getAttribute('src', { timeout: random(1000, 3000) })
+            .catch(() => {
+              throw new Error('Failed to extract photo URL');
+            }),
           page
             .locator('a:has(img[alt="twitter"])')
             .first()
@@ -150,47 +128,13 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
             .catch(() => undefined),
         ]);
 
-        const name = await page
-          .locator('h1')
-          .first()
-          .textContent()
-          .then((t) => (t ?? '').trim())
-          .catch(() => '');
-
-        const parliamentaryGroup = await page
-          .locator('.grupo-parlamentario, [class*="grupo"]')
-          .first()
-          .textContent()
-          .then((t) => (t ?? '').trim())
-          .catch(() => '');
-
-        const partyName = await page
-          .locator('.formacion, [class*="formacion"]')
-          .first()
-          .textContent()
-          .then((t) => (t ?? '').trim())
-          .catch(() => '');
-
-        const electoralFormation = await page
-          .locator('.siglas-partido')
-          .first()
-          .textContent()
-          .then((t) => (t ?? '').trim())
-          .catch(() => '');
-
         subscriber.next({
-          activitiesDeclarationUrl: activitiesDeclarationUrl ?? undefined,
-          assetsDeclarationUrl: assetsDeclarationUrl ?? undefined,
           birthDate,
           codParlamentario,
-          constituency: 0,
           electoralFormation,
           email,
           facebook,
-          gender: 0,
           instagram,
-          interestsDeclarationUrl: interestsDeclarationUrl ?? undefined,
-          legislatures,
           linkedin,
           name,
           parliamentaryGroup,
