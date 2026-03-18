@@ -322,6 +322,28 @@ model ScraperMetadata {
   @@index([scraperType])
 }
 
+/// Type of legislative initiative.
+enum InitiativeType {
+  /// Ley — enacted law passed by Parliament.
+  LAW
+  /// Ley orgánica — organic law requiring absolute majority.
+  ORGANIC_LAW
+  /// Real Decreto-ley — emergency royal decree with force of law.
+  ROYAL_DECREE
+  /// Proyecto de Ley — government-sponsored bill.
+  BILL
+  /// Proposición de Ley de Diputados — private member bill.
+  PRIVATE_MEMBER_BILL
+  /// Proposición de Ley de Grupos Parlamentarios — parliamentary group bill.
+  PARLIAMENTARY_GROUP_BILL
+  /// Proposición de Ley de Comunidades Autónomas — autonomous community bill.
+  AUTONOMOUS_COMMUNITY_BILL
+  /// Proposición de Ley del Senado — senate bill.
+  SENATE_BILL
+  /// Propuesta de reforma de Estatuto de Autonomía — statute reform proposal.
+  STATUTE_REFORM
+}
+
 /// Represents an approved or in-progress legislative initiative from the Spanish Congress.
 /// Covers Proyectos de Ley, Proposiciones de Ley, Real Decreto-ley, and other initiative
 /// types published in the congreso.es Iniciativas open data dataset.
@@ -331,8 +353,8 @@ model Initiative {
   id                   String    @id @default(cuid())
   /// Legislature number for historical partitioning.
   legislature          Int
-  /// Initiative type (e.g. "Proyecto de ley", "Leyes", "Reales decretos").
-  tipo                 String
+  /// Initiative type — normalised enum value derived from the source Spanish string.
+  type                 InitiativeType
   /// Initiative title. OBJETO for parliamentary bills, TITULO_LEY for approved laws.
   title                String
   /// Parliamentary expedient number (e.g. "121/000009/0000").

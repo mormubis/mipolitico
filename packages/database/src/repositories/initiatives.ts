@@ -1,8 +1,7 @@
 import { prisma } from '../client.ts';
-import {
-  InitiativeInputSchema,
-  ParliamentaryInitiativeSchema,
-} from '../validation/index.ts';
+import { InitiativeInputSchema,
+  InitiativeType,
+  ParliamentaryInitiativeSchema } from '../validation/index.ts';
 import { logValidationError } from '../validation/logger.ts';
 
 import type {
@@ -109,14 +108,14 @@ export async function upsertInitiatives(
         },
         create: {
           legislature: data.legislature,
-          tipo: data.type,
+          type: data.type as never,
           title: data.subject,
           expedienteNumero: data.fileNumber,
           situacion: data.currentStatus ?? null,
           resultadoTramitacion: data.processingResult ?? null,
         },
         update: {
-          tipo: data.type,
+          type: data.type as never,
           title: data.subject,
           situacion: data.currentStatus ?? null,
           resultadoTramitacion: data.processingResult ?? null,
@@ -138,7 +137,7 @@ export async function upsertInitiatives(
         },
         create: {
           legislature: data.legislature,
-          tipo: data.type,
+          type: data.type as never,
           title: data.lawTitle,
           bulletinNumber: data.bulletinNumber,
           number: data.lawNumber ?? null,
@@ -147,7 +146,7 @@ export async function upsertInitiatives(
           pdfUrl: data.pdf ?? null,
         },
         update: {
-          tipo: data.type,
+          type: data.type as never,
           title: data.lawTitle,
           number: data.lawNumber ?? null,
           bulletinDate: parseDate(data.bulletinDate),
@@ -163,7 +162,8 @@ export async function upsertInitiatives(
   // parliamentary bills to populate bulletinNumber, number, enactedDate, pdfUrl.
   // Reales decretos are skipped — they have no parliamentary counterpart.
   const enrichable = approved.filter(
-    (a) => a.type === 'Leyes' || a.type === 'Leyes orgánicas',
+    (a) =>
+      a.type === InitiativeType.LAW || a.type === InitiativeType.ORGANIC_LAW,
   );
 
   if (enrichable.length > 0) {

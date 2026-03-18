@@ -1,5 +1,19 @@
 import { z } from 'zod';
 
+const InitiativeType = {
+  AUTONOMOUS_COMMUNITY_BILL: 'AUTONOMOUS_COMMUNITY_BILL',
+  BILL: 'BILL',
+  LAW: 'LAW',
+  ORGANIC_LAW: 'ORGANIC_LAW',
+  PARLIAMENTARY_GROUP_BILL: 'PARLIAMENTARY_GROUP_BILL',
+  PRIVATE_MEMBER_BILL: 'PRIVATE_MEMBER_BILL',
+  ROYAL_DECREE: 'ROYAL_DECREE',
+  SENATE_BILL: 'SENATE_BILL',
+  STATUTE_REFORM: 'STATUTE_REFORM',
+} as const;
+
+export { InitiativeType };
+
 // Input schema for person.ts scraper output
 export const PersonInputSchema = z.object({
   biography: z.string(),
@@ -71,7 +85,7 @@ export const ParliamentaryInitiativeSchema = z.object({
   presentationDate: z.string().optional(),
   processingResult: z.string().optional(),
   subject: z.string(),
-  type: z.string(),
+  type: z.enum(Object.values(InitiativeType) as [string, ...string[]]),
 });
 export type ParliamentaryInitiativeInput = z.infer<
   typeof ParliamentaryInitiativeSchema
@@ -86,7 +100,7 @@ export const ApprovedLawSchema = z.object({
   lawTitle: z.string(),
   legislature: z.number().int(),
   pdf: z.string().optional(),
-  type: z.string(),
+  type: z.enum(Object.values(InitiativeType) as [string, ...string[]]),
 });
 export type ApprovedLawInput = z.infer<typeof ApprovedLawSchema>;
 

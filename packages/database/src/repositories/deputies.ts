@@ -46,7 +46,30 @@ export async function upsertDeputies(
   // Batch UPSERT in transaction
   await prisma.$transaction(async (tx) => {
     for (const data of validRecords) {
-      // Upsert person first
+      // Upsert person first.
+      // Known limitation: two deputies with identical names will collide into
+      // one Person record. Warn if a collision is detected so it can be handled
+      // manually. A proper fix requires using codParlamentario as the natural key.
+      const existing = await tx.person.findUnique({
+        where: { name: data.name },
+      });
+      if (existing) {
+        const existingDeputy = await tx.deputy.findFirst({
+          where: { personId: existing.id, legislature },
+        });
+        if (existingDeputy) {
+          const startDate = parseSpanishDate(data.startDate);
+          if (
+            startDate &&
+            existingDeputy.startDate.getTime() !== startDate.getTime()
+          ) {
+            console.warn(
+              `[deputies] Name collision detected: "${data.name}" already has a deputy record for legislature ${String(legislature)} — two different people may share this name`,
+            );
+          }
+        }
+      }
+
       const person = await tx.person.upsert({
         where: { name: data.name },
         create: { name: data.name, biography: data.biography },

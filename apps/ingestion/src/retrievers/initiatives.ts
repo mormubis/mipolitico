@@ -1,4 +1,4 @@
-import { InitiativeInputSchema } from '@congress/database';
+import { InitiativeInputSchema, InitiativeType } from '@congress/database';
 import { Readable } from 'node:stream';
 import oboe from 'oboe';
 import { Observable } from 'rxjs';
@@ -7,6 +7,22 @@ import { CURRENT_LEGISLATURE } from '../config/legislature.ts';
 
 import type { Retriever } from '../types.ts';
 import type { InitiativeInput } from '@congress/database';
+
+const TIPO_MAP: Record<string, string> = {
+  'Leyes': InitiativeType.LAW,
+  'Leyes organicas': InitiativeType.ORGANIC_LAW,
+  'Leyes orgánicas': InitiativeType.ORGANIC_LAW,
+  'Reales decretos': InitiativeType.ROYAL_DECREE,
+  'Proyecto de ley': InitiativeType.BILL,
+  'Proposición de ley de Diputados': InitiativeType.PRIVATE_MEMBER_BILL,
+  'Proposición de ley de Grupos Parlamentarios del Congreso':
+    InitiativeType.PARLIAMENTARY_GROUP_BILL,
+  'Proposición de ley de Comunidades y Ciudades Autónomas':
+    InitiativeType.AUTONOMOUS_COMMUNITY_BILL,
+  'Proposición de ley del Senado': InitiativeType.SENATE_BILL,
+  'Propuesta de reforma de Estatuto de Autonomía':
+    InitiativeType.STATUTE_REFORM,
+};
 
 const retriever: Retriever<InitiativeInput> = ({
   fetch,
@@ -32,9 +48,11 @@ const retriever: Retriever<InitiativeInput> = ({
 
         oboe(Readable.fromWeb(response.body))
           .node('!.*', (item: unknown) => {
+            const raw = item as Record<string, unknown>;
             const result = InitiativeInputSchema.safeParse({
-              ...(item as Record<string, unknown>),
+              ...raw,
               legislature: CURRENT_LEGISLATURE,
+              type: TIPO_MAP[raw.TIPO as string] ?? raw.TIPO,
             });
             if (result.success) {
               subscriber.next(result.data);
