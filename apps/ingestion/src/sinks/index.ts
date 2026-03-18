@@ -4,6 +4,7 @@ export {
   persistInterestDeclarations,
   persistOrganMembers,
   persistParties,
+  persistPersonDetail,
   persistSpeeches,
   persistVotes,
   type PersistResult,

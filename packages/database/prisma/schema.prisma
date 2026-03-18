@@ -17,6 +17,22 @@ model Person {
   name          String
   /// Optional biography text from official congress profile.
   biography     String?
+  /// Date of birth.
+  birthDate     DateTime?
+  /// URL to official congress profile photo.
+  photoUrl      String?
+  /// Official congress email address.
+  email         String?
+  /// Facebook profile URL.
+  facebook      String?
+  /// Instagram profile URL.
+  instagram     String?
+  /// LinkedIn profile URL.
+  linkedin      String?
+  /// Twitter/X profile URL.
+  twitter       String?
+  /// Personal website URL.
+  web           String?
   /// Timestamp of record creation.
   createdAt     DateTime @default(now())
   /// Timestamp of last record update.

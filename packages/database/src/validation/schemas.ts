@@ -171,6 +171,26 @@ export type InterestDeclarationDetailInput = z.infer<
   typeof InterestDeclarationDetailInputSchema
 >;
 
+// Input schema for person-detail retriever output.
+// Contains raw scraped data before entity resolution.
+// A processor resolves name → Person.id to persist enriched person data.
+export const PersonDetailInputSchema = z.object({
+  birthDate: z.string().optional(),
+  codParlamentario: z.number(),
+  electoralFormation: z.string().min(1),
+  email: z.string().optional(),
+  facebook: z.string().optional(),
+  instagram: z.string().optional(),
+  linkedin: z.string().optional(),
+  name: z.string().min(1),
+  parliamentaryGroup: z.string(),
+  partyName: z.string().optional(),
+  photoUrl: z.string(),
+  twitter: z.string().optional(),
+  web: z.string().optional(),
+});
+export type PersonDetailInput = z.infer<typeof PersonDetailInputSchema>;
+
 // Input schema for party scraper output
 export const PartyInputSchema = z.object({
   name: z.string().min(1),

@@ -38,6 +38,7 @@ import {
   persistInterestDeclarations,
   persistOrganMembers,
   persistParties,
+  persistPersonDetail,
   persistSpeeches,
   persistVotes,
 } from './sinks/index.ts';
@@ -132,6 +133,7 @@ function buildSources(
 
 const PIPELINES: PipelineEntry<unknown, unknown>[] = [
   { sources: ['person'], sink: persistDeputies() },
+  { sources: ['person-detail'], sink: persistPersonDetail() },
   {
     // partyProcessor uses reduce() — it accumulates the full merged stream
     // from both 'person' and 'person-detail' before emitting. This means
@@ -176,6 +178,7 @@ const SOURCE_ALIASES: Record<string, string[] | null> = {
 // Maps SourceEntry names to ScraperMetadata keys for success/failure tracking
 const SCRAPER_TYPE_MAP: Record<string, string> = {
   'person': 'deputies',
+  'person-detail': 'personDetail',
   'voting': 'voting',
   'bureau': 'bureau',
   'intervention-detail': 'speeches',

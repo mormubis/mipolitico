@@ -4,6 +4,7 @@ import {
   upsertInterestDeclaration,
   upsertOrganMembers,
   upsertParties,
+  upsertPersonDetail,
   upsertSpeeches,
   upsertVotingRecords,
 } from '@congress/database';
@@ -21,7 +22,10 @@ interface PersistResult {
   totalSessions?: number;
 }
 
-interface BatchResult { totalSuccess: number; totalSkipped: number }
+interface BatchResult {
+  totalSuccess: number;
+  totalSkipped: number;
+}
 
 /**
  * Generic factory that creates a batched persist sink for any upsert function
@@ -49,11 +53,11 @@ function createBatchedSink(
         }),
         { batch: 0, totalSuccess: 0, totalSkipped: 0 },
       ),
-      tap(({ batch, totalSuccess, totalSkipped }) =>
-        { console.log(
+      tap(({ batch, totalSuccess, totalSkipped }) => {
+        console.log(
           `[${tag}] Batch ${String(batch)}: ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
-        ); },
-      ),
+        );
+      }),
       reduce(
         (acc, r) => ({
           batches: acc.batches + 1,
@@ -63,11 +67,11 @@ function createBatchedSink(
         { batches: 0, totalSuccess: 0, totalSkipped: 0 },
       ),
       map((acc) => ({ source: tag, ...acc })),
-      tap((r) =>
-        { console.log(
+      tap((r) => {
+        console.log(
           `[${tag}] Complete: ${String(r.batches)} batches, ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped`,
-        ); },
-      ),
+        );
+      }),
     );
 }
 
@@ -107,11 +111,11 @@ function persistVotes(): Sink<unknown, PersistResult> {
         }),
         { batch: 0, totalSuccess: 0, totalSkipped: 0, totalSessions: 0 },
       ),
-      tap(({ batch, totalSessions, totalSuccess, totalSkipped }) =>
-        { console.log(
+      tap(({ batch, totalSessions, totalSuccess, totalSkipped }) => {
+        console.log(
           `[votes] Batch ${String(batch)}: ${String(totalSessions)} sessions, ${String(totalSuccess)} votes, ${String(totalSkipped)} skipped`,
-        ); },
-      ),
+        );
+      }),
       reduce(
         (acc, r) => ({
           batches: acc.batches + 1,
@@ -122,11 +126,11 @@ function persistVotes(): Sink<unknown, PersistResult> {
         { batches: 0, totalSuccess: 0, totalSkipped: 0, totalSessions: 0 },
       ),
       map((acc) => ({ source: 'votes', ...acc })),
-      tap((r) =>
-        { console.log(
+      tap((r) => {
+        console.log(
           `[votes] Complete: ${String(r.batches)} batches, ${String(r.totalSessions)} sessions, ${String(r.totalSuccess)} votes, ${String(r.totalSkipped)} skipped`,
-        ); },
-      ),
+        );
+      }),
     );
 }
 
@@ -171,11 +175,11 @@ function persistInterestDeclarations(): Sink<unknown, PersistResult> {
         { batches: 0, totalSuccess: 0, totalSkipped: 0 },
       ),
       map((acc) => ({ source: 'interestDeclarations', ...acc })),
-      tap((r) =>
-        { console.log(
+      tap((r) => {
+        console.log(
           `[interestDeclarations] Complete: ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped`,
-        ); },
-      ),
+        );
+      }),
     );
 }
 
@@ -199,12 +203,42 @@ function persistOrganMembers(): Sink<unknown, PersistResult> {
   });
 }
 
+/**
+ * RxJS operator that persists person-detail records to database.
+ * Each record is upserted individually (no batching) because each is a
+ * targeted update to an existing Person record.
+ */
+function persistPersonDetail(): Sink<unknown, PersistResult> {
+  return (source) =>
+    source.pipe(
+      mergeMap(async (record) => {
+        const success = await upsertPersonDetail(record);
+        return { totalSuccess: success ? 1 : 0, totalSkipped: success ? 0 : 1 };
+      }),
+      reduce(
+        (acc, r) => ({
+          batches: 0,
+          totalSuccess: acc.totalSuccess + r.totalSuccess,
+          totalSkipped: acc.totalSkipped + r.totalSkipped,
+        }),
+        { batches: 0, totalSuccess: 0, totalSkipped: 0 },
+      ),
+      map((acc) => ({ source: 'personDetail', ...acc })),
+      tap((r) =>
+        { console.log(
+          `[personDetail] Complete: ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped`,
+        ); },
+      ),
+    );
+}
+
 export {
   persistDeputies,
   persistInitiatives,
   persistInterestDeclarations,
   persistOrganMembers,
   persistParties,
+  persistPersonDetail,
   persistSpeeches,
   persistVotes,
   type PersistResult,
