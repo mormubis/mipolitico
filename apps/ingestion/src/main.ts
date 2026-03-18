@@ -18,19 +18,16 @@ import { finder as initiativesFinder } from './finders/initiatives.ts';
 import { finder as interestDeclarationsDetailFinder } from './finders/interest-declarations-detail.ts';
 import { finder as interestDeclarationsFinder } from './finders/interest-declarations.ts';
 import { finder as interventionDetailFinder } from './finders/intervention-detail.ts';
-import { finder as interventionFinder } from './finders/intervention.ts';
 import { finder as personDetailFinder } from './finders/person-detail.ts';
 import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
-import { processor as interestDeclarationsProcessor } from './processors/interest-declarations.ts';
 import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
 import { retriever as interestDeclarationsDetailRetriever } from './retrievers/interest-declarations-detail.ts';
 import { retriever as interestDeclarationsRetriever } from './retrievers/interest-declarations.ts';
 import { retriever as interventionDetailRetriever } from './retrievers/intervention-detail.ts';
-import { retriever as interventionRetriever } from './retrievers/intervention.ts';
 import { retriever as personDetailRetriever } from './retrievers/person-detail.ts';
 import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';
@@ -89,25 +86,95 @@ async function buildVotingFilter(): Promise<(url: string) => boolean> {
 }
 
 // ---------------------------------------------------------------------------
+// Registry builders
+// ---------------------------------------------------------------------------
+
+function buildSources(
+  votingFilter: (url: string) => boolean,
+): SourceEntry<unknown>[] {
+  return [
+    { name: 'person', finder: personFinder, retriever: personRetriever },
+    {
+      name: 'person-detail',
+      finder: personDetailFinder,
+      retriever: personDetailRetriever,
+    },
+    {
+      name: 'voting',
+      finder: votingFinder,
+      retriever: votingRetriever,
+      urlFilter: votingFilter,
+    },
+    { name: 'bureau', finder: bureauFinder, retriever: bureauRetriever },
+    {
+      name: 'intervention-detail',
+      finder: interventionDetailFinder,
+      retriever: interventionDetailRetriever,
+    },
+    {
+      name: 'initiatives',
+      finder: initiativesFinder,
+      retriever: initiativesRetriever,
+    },
+    {
+      name: 'interest-declarations',
+      finder: interestDeclarationsFinder,
+      retriever: interestDeclarationsRetriever,
+    },
+    {
+      name: 'interest-declarations-detail',
+      finder: interestDeclarationsDetailFinder,
+      retriever: interestDeclarationsDetailRetriever,
+    },
+  ];
+}
+
+const PIPELINES: PipelineEntry<unknown, unknown>[] = [
+  { sources: ['person'], sink: persistDeputies() },
+  {
+    // partyProcessor uses reduce() — it accumulates the full merged stream
+    // from both 'person' and 'person-detail' before emitting. This means
+    // parties are persisted only after all retrievers complete (not just
+    // person + person-detail). This is intentional: the shared data$ completes
+    // when all active sources are done, which is when reduce() emits.
+    sources: ['person', 'person-detail'],
+    processor: partyProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistParties(),
+  },
+  { sources: ['voting'], sink: persistVotes() },
+  { sources: ['bureau'], sink: persistOrganMembers() },
+  { sources: ['intervention-detail'], sink: persistSpeeches() },
+  { sources: ['initiatives'], sink: persistInitiatives() },
+  {
+    sources: ['interest-declarations-detail'],
+    sink: persistInterestDeclarations(),
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Source alias map — maps CLI --source values to one or more SourceEntry names
 // ---------------------------------------------------------------------------
 
 // null means "activate all sources"
 const SOURCE_ALIASES: Record<string, string[] | null> = {
+  // deputies: full deputy profile (metadata + detail)
+  deputies: ['person', 'person-detail'],
+  // parties: subset of deputies needed to extract party data
   parties: ['person', 'person-detail'],
+  // speeches: full speech pipeline (detail page scraping)
+  speeches: ['intervention-detail'],
+  // declarations: interest declaration PDFs per deputy
+  declarations: ['interest-declarations', 'interest-declarations-detail'],
   all: null,
 };
 
 // Maps SourceEntry names to ScraperMetadata keys for success/failure tracking
 const SCRAPER_TYPE_MAP: Record<string, string> = {
   'person': 'deputies',
-  'person-detail': 'parties',
   'voting': 'voting',
   'bureau': 'bureau',
-  'intervention': 'intervention',
   'intervention-detail': 'speeches',
   'initiatives': 'initiatives',
-  'interest-declarations': 'interestDeclarations',
   'interest-declarations-detail': 'interestDeclarationsDetail',
 };
 
@@ -134,81 +201,14 @@ async function runAll(
       ? await buildVotingFilter()
       : () => true;
 
-  const SOURCES: SourceEntry<unknown>[] = [
-    { name: 'person', finder: personFinder, retriever: personRetriever },
-    {
-      name: 'person-detail',
-      finder: personDetailFinder,
-      retriever: personDetailRetriever,
-    },
-    {
-      name: 'voting',
-      finder: votingFinder,
-      retriever: votingRetriever,
-      urlFilter: votingFilter,
-    },
-    { name: 'bureau', finder: bureauFinder, retriever: bureauRetriever },
-    {
-      name: 'intervention',
-      finder: interventionFinder,
-      retriever: interventionRetriever,
-    },
-    {
-      name: 'intervention-detail',
-      finder: interventionDetailFinder,
-      retriever: interventionDetailRetriever,
-    },
-    {
-      name: 'initiatives',
-      finder: initiativesFinder,
-      retriever: initiativesRetriever,
-    },
-    {
-      name: 'interest-declarations',
-      finder: interestDeclarationsFinder,
-      retriever: interestDeclarationsRetriever,
-    },
-    {
-      name: 'interest-declarations-detail',
-      finder: interestDeclarationsDetailFinder,
-      retriever: interestDeclarationsDetailRetriever,
-    },
-  ];
-
-  const PIPELINES: PipelineEntry<unknown, unknown>[] = [
-    { sources: ['person'], sink: persistDeputies() },
-    {
-      // partyProcessor uses reduce() — it accumulates the full merged stream
-      // from both 'person' and 'person-detail' before emitting. This means
-      // parties are persisted only after all retrievers complete (not just
-      // person + person-detail). This is intentional: the shared data$ completes
-      // when all active sources are done, which is when reduce() emits.
-      sources: ['person', 'person-detail'],
-      processor: partyProcessor as OperatorFunction<unknown, unknown>,
-      sink: persistParties(),
-    },
-    { sources: ['voting'], sink: persistVotes() },
-    { sources: ['bureau'], sink: persistOrganMembers() },
-    { sources: ['intervention-detail'], sink: persistSpeeches() },
-    { sources: ['initiatives'], sink: persistInitiatives() },
-    {
-      sources: ['interest-declarations'],
-      processor: interestDeclarationsProcessor as OperatorFunction<
-        unknown,
-        unknown
-      >,
-      sink: persistInterestDeclarations(),
-    },
-    {
-      sources: ['interest-declarations-detail'],
-      sink: persistInterestDeclarations(),
-    },
-  ];
+  const SOURCES = buildSources(votingFilter);
 
   // Filter registry when --source is provided
   const activeSources = resolvedSources
     ? SOURCES.filter((s) => resolvedSources.includes(s.name))
     : SOURCES;
+
+  const activeSourceNames = new Set(activeSources.map((s) => s.name));
 
   // Only activate pipelines where ALL required sources are active.
   // Pipelines whose sources are only partially active are skipped with a log.
@@ -222,8 +222,6 @@ async function runAll(
     }
     return allActive;
   });
-
-  const activeSourceNames = new Set(activeSources.map((s) => s.name));
 
   if (activeSources.length === 0) {
     const validSources = [
