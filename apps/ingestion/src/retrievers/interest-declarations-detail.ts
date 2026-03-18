@@ -6,10 +6,11 @@ import type { Retriever } from '../types.ts';
 type Model = z.infer<typeof Schema>;
 
 const Schema = z.object({
-  COD_PARLAMENTARIO: z.number(),
-  PDF_ACTIVIDADES: z.string().optional(),
-  PDF_BIENES_RENTAS: z.string().optional(),
-  PDF_INTERESES_ECONOMICOS: z.string().optional(),
+  codParlamentario: z.number(),
+  name: z.string().min(1),
+  pdfActividades: z.string().optional(),
+  pdfBienesRentas: z.string().optional(),
+  pdfInteresesEconomicos: z.string().optional(),
 });
 
 const retriever: Retriever<Model> = ({ browser, url }) => {
@@ -25,8 +26,13 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
           urlObj.searchParams.get('codParlamentario') ?? '0',
         );
 
-        const [pdfActividades, pdfBienesRentas, pdfInteresesEconomicos] =
+        const [name, pdfActividades, pdfBienesRentas, pdfInteresesEconomicos] =
           await Promise.all([
+            page
+              .locator('h1')
+              .first()
+              .textContent()
+              .then((t) => (t ?? '').trim()),
             page
               .getByText('Declaración de Actividades')
               .first()
@@ -45,10 +51,11 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
           ]);
 
         subscriber.next({
-          COD_PARLAMENTARIO: codParlamentario,
-          PDF_ACTIVIDADES: pdfActividades ?? undefined,
-          PDF_BIENES_RENTAS: pdfBienesRentas ?? undefined,
-          PDF_INTERESES_ECONOMICOS: pdfInteresesEconomicos ?? undefined,
+          codParlamentario,
+          name,
+          pdfActividades: pdfActividades ?? undefined,
+          pdfBienesRentas: pdfBienesRentas ?? undefined,
+          pdfInteresesEconomicos: pdfInteresesEconomicos ?? undefined,
         });
 
         subscriber.complete();

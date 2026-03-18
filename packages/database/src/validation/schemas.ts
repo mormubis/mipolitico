@@ -157,6 +157,20 @@ export type InterestDeclarationInput = z.infer<
   typeof InterestDeclarationInputSchema
 >;
 
+// Input schema for interest-declarations-detail retriever output.
+// Contains raw scraped data before entity resolution.
+// A processor resolves name → Deputy.id to produce InterestDeclarationInput.
+export const InterestDeclarationDetailInputSchema = z.object({
+  codParlamentario: z.number(),
+  name: z.string().min(1),
+  pdfActividades: z.string().optional(),
+  pdfBienesRentas: z.string().optional(),
+  pdfInteresesEconomicos: z.string().optional(),
+});
+export type InterestDeclarationDetailInput = z.infer<
+  typeof InterestDeclarationDetailInputSchema
+>;
+
 // Input schema for party scraper output
 export const PartyInputSchema = z.object({
   name: z.string().min(1),
