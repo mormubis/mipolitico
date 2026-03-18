@@ -286,16 +286,14 @@ model OrganMember {
 }
 
 /// Tracks scraper execution metadata for monitoring and retry management.
-/// Maintains state for job scheduling system including retry counts, error tracking,
-/// and last execution timestamps. Each scraper type has one metadata record.
+/// Maintains state for the ingestion pipeline including success/failure tracking,
+/// retry counts, and last execution timestamps. Each scraper type has one record.
 ///
-/// Used by Phase 3 job scheduling (job-scheduling implementation) for:
-/// - Determining next execution time based on lastSuccessfulRun
-/// - Exponential backoff retry logic using attemptCount
-/// - Error tracking and alerting via lastError
-/// - Health monitoring and scraper diagnostics
+/// Used by the ingestion pipeline (apps/ingestion/src/main.ts) for:
+/// - Recording successful and failed scraper runs via updateScraperMetadata
+/// - Exposing run history for monitoring and diagnostics
 ///
-/// Data source: Updated by scraper execution framework (job scheduler)
+/// Data source: Updated by apps/ingestion/src/main.ts after each pipeline run
 model ScraperMetadata {
   id                  String   @id @default(cuid())
   /// Unique identifier for the scraper type (e.g., "person", "voting", "intervention", "bureau").
@@ -372,6 +370,8 @@ model Initiative {
   enactedDate          DateTime?
   /// URL to the official PDF. Null until enriched.
   pdfUrl               String?
+  /// Date the parliamentary bill was submitted. Null for approved laws and Reales decretos.
+  presentedDate        DateTime?
   /// Current parliamentary status (e.g. "Cerrado", "Comisión de Justicia\nInforme").
   /// Null for Reales decretos.
   situacion            String?

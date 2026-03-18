@@ -76,9 +76,6 @@ export type BureauInput = z.infer<typeof BureauInputSchema>;
 
 // Parliamentary bill (ProyectosDeLey, ProposicionesDeLey, PropuestasDeReforma)
 export const ParliamentaryInitiativeSchema = z.object({
-  // presentationDate is validated but not stored — the Initiative model does
-  // not have a presentedDate field. Add one if parliamentary submission dates
-  // become relevant for analytics.
   currentStatus: z.string().optional(),
   fileNumber: z.string().min(1),
   legislature: z.number().int(),

@@ -1,7 +1,9 @@
 import { prisma } from '../client.ts';
-import { InitiativeInputSchema,
+import {
+  InitiativeInputSchema,
   InitiativeType,
-  ParliamentaryInitiativeSchema } from '../validation/index.ts';
+  ParliamentaryInitiativeSchema,
+} from '../validation/index.ts';
 import { logValidationError } from '../validation/logger.ts';
 
 import type {
@@ -111,12 +113,14 @@ export async function upsertInitiatives(
           type: data.type as never,
           title: data.subject,
           expedienteNumero: data.fileNumber,
+          presentedDate: parseDate(data.presentationDate),
           situacion: data.currentStatus ?? null,
           resultadoTramitacion: data.processingResult ?? null,
         },
         update: {
           type: data.type as never,
           title: data.subject,
+          presentedDate: parseDate(data.presentationDate),
           situacion: data.currentStatus ?? null,
           resultadoTramitacion: data.processingResult ?? null,
         },
