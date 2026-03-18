@@ -50,6 +50,27 @@ pnpm install                    # install all workspace dependencies
 
 ---
 
+## Database Architecture Principles
+
+### Enrichment before storage
+
+All entity resolution and enrichment must happen **before** data reaches the
+repository — in a processor or the retriever itself. Repositories are pure write
+operations: they receive complete, resolved records and persist them. They never
+perform lookups, joins, or business logic.
+
+This means:
+
+- Processors handle entity resolution (e.g. resolving `codParlamentario` →
+  `Deputy.id`)
+- Pipeline order is explicit: `person` must run before `person-detail` or
+  `bureau` so that `Person` records exist when dependent pipelines resolve
+  foreign keys
+- Never store partial data with the intent to enrich it later — enrich first,
+  store once
+
+---
+
 ## Ingestion Architecture Principles
 
 These principles were established through analysis of the finders and
