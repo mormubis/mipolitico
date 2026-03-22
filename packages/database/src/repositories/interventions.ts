@@ -1,62 +1,47 @@
 import { prisma } from '../client.ts';
-import { SpeechInputSchema } from '../validation/index.ts';
+import { InterventionInputSchema } from '../validation/index.ts';
 import { logValidationError } from '../validation/logger.ts';
 
-import type { SpeechInput } from '../validation/index.ts';
+import type { InterventionInput } from '../validation/index.ts';
 
 function parseSpanishDate(dateStr: string): Date | null {
   const parts = dateStr.split('/').map(Number);
-  const day = parts[0];
-  const month = parts[1];
-  const year = parts[2];
-  if (
-    day === undefined ||
-    month === undefined ||
-    year === undefined ||
-    isNaN(day) ||
-    isNaN(month) ||
-    isNaN(year)
-  ) {
-    return null;
-  }
+  const [day, month, year] = parts;
+  if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year))
+    {return null;}
   return new Date(year, month - 1, day);
 }
 
-export async function upsertSpeeches(
+async function upsertInterventions(
   records: unknown[],
 ): Promise<{ success: number; skipped: number }> {
   let success = 0;
   let skipped = 0;
 
-  const validRecords: SpeechInput[] = [];
+  const valid: InterventionInput[] = [];
   for (const record of records) {
-    const result = SpeechInputSchema.safeParse(record);
+    const result = InterventionInputSchema.safeParse(record);
     if (result.success) {
-      validRecords.push(result.data);
+      valid.push(result.data);
     } else {
-      logValidationError('speeches', record, result.error);
+      logValidationError('interventions', record, result.error);
       skipped++;
     }
   }
 
   await prisma.$transaction(async (tx) => {
-    for (const data of validRecords) {
+    for (const data of valid) {
       const sessionDate = parseSpanishDate(data.sessionDate);
       if (!sessionDate) {
         skipped++;
         continue;
       }
 
-      // Try to link to person by name
       const person = await tx.person.findFirst({
-        where: {
-          name: {
-            contains: data.speakerName,
-          },
-        },
+        where: { name: { contains: data.speakerName } },
       });
 
-      await tx.speech.upsert({
+      await tx.intervention.upsert({
         where: {
           sessionId_orderInSession: {
             sessionId: data.sessionId,
@@ -74,6 +59,13 @@ export async function upsertSpeeches(
           speakerRole: data.speakerRole ?? null,
           text: data.text,
           orderInSession: data.order,
+          organ: data.organ ?? null,
+          initiativeSubject: data.initiativeSubject ?? null,
+          interventionType: data.interventionType ?? null,
+          startTime: data.startTime ?? null,
+          endTime: data.endTime ?? null,
+          videoUrl: data.videoUrl ?? null,
+          videoDownloadUrl: data.videoDownloadUrl ?? null,
         },
         update: {
           personId: person?.id ?? null,
@@ -83,12 +75,20 @@ export async function upsertSpeeches(
           speakerName: data.speakerName,
           speakerRole: data.speakerRole ?? null,
           text: data.text,
+          organ: data.organ ?? null,
+          initiativeSubject: data.initiativeSubject ?? null,
+          interventionType: data.interventionType ?? null,
+          startTime: data.startTime ?? null,
+          endTime: data.endTime ?? null,
+          videoUrl: data.videoUrl ?? null,
+          videoDownloadUrl: data.videoDownloadUrl ?? null,
         },
       });
-
       success++;
     }
   });
 
   return { success, skipped };
 }
+
+export { upsertInterventions };
