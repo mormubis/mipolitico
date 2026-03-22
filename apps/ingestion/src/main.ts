@@ -18,17 +18,20 @@ import { finder as initiativesFinder } from './finders/initiatives.ts';
 import { finder as interestDeclarationsDetailFinder } from './finders/interest-declarations-detail.ts';
 import { finder as interestDeclarationsFinder } from './finders/interest-declarations.ts';
 import { finder as interventionDetailFinder } from './finders/intervention-detail.ts';
+import { finder as interventionFinder } from './finders/intervention.ts';
 import { finder as personDetailFinder } from './finders/person-detail.ts';
 import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
 import { processor as interestDeclarationsDetailProcessor } from './processors/interest-declarations-detail.ts';
+import { processor as interventionProcessor } from './processors/intervention.ts';
 import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
 import { retriever as interestDeclarationsDetailRetriever } from './retrievers/interest-declarations-detail.ts';
 import { retriever as interestDeclarationsRetriever } from './retrievers/interest-declarations.ts';
 import { retriever as interventionDetailRetriever } from './retrievers/intervention-detail.ts';
+import { retriever as interventionRetriever } from './retrievers/intervention.ts';
 import { retriever as personDetailRetriever } from './retrievers/person-detail.ts';
 import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';
@@ -36,10 +39,10 @@ import {
   persistDeputies,
   persistInitiatives,
   persistInterestDeclarations,
+  persistInterventions,
   persistOrganMembers,
   persistParties,
   persistPersonDetail,
-  persistSpeeches,
   persistVotes,
 } from './sinks/index.ts';
 
@@ -109,6 +112,11 @@ function buildSources(
     },
     { name: 'bureau', finder: bureauFinder, retriever: bureauRetriever },
     {
+      name: 'intervention',
+      finder: interventionFinder,
+      retriever: interventionRetriever,
+    },
+    {
       name: 'intervention-detail',
       finder: interventionDetailFinder,
       retriever: interventionDetailRetriever,
@@ -146,7 +154,11 @@ const PIPELINES: PipelineEntry<unknown, unknown>[] = [
   },
   { sources: ['voting'], sink: persistVotes() },
   { sources: ['bureau'], sink: persistOrganMembers() },
-  { sources: ['intervention-detail'], sink: persistSpeeches() },
+  {
+    sources: ['intervention', 'intervention-detail'],
+    processor: interventionProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistInterventions(),
+  },
   { sources: ['initiatives'], sink: persistInitiatives() },
   {
     sources: ['interest-declarations-detail'],
@@ -168,8 +180,8 @@ const SOURCE_ALIASES: Record<string, string[] | null> = {
   deputies: ['person', 'person-detail'],
   // parties: subset of deputies needed to extract party data
   parties: ['person', 'person-detail'],
-  // speeches: full speech pipeline (detail page scraping)
-  speeches: ['intervention-detail'],
+  // interventions: full intervention pipeline (bulk metadata + detail HTML)
+  interventions: ['intervention', 'intervention-detail'],
   // declarations: interest declaration PDFs per deputy
   declarations: ['interest-declarations', 'interest-declarations-detail'],
   all: null,
@@ -181,7 +193,8 @@ const SCRAPER_TYPE_MAP: Record<string, string> = {
   'person-detail': 'personDetail',
   'voting': 'voting',
   'bureau': 'bureau',
-  'intervention-detail': 'speeches',
+  'intervention': 'interventions',
+  'intervention-detail': 'interventions',
   'initiatives': 'initiatives',
   'interest-declarations-detail': 'interestDeclarationsDetail',
 };

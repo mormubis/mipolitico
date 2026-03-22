@@ -2,10 +2,10 @@ import {
   upsertDeputies,
   upsertInitiatives,
   upsertInterestDeclaration,
+  upsertInterventions,
   upsertOrganMembers,
   upsertParties,
   upsertPersonDetail,
-  upsertSpeeches,
   upsertVotingRecords,
 } from '@congress/database';
 import { bufferCount, map, mergeMap, reduce, scan, tap } from 'rxjs';
@@ -135,11 +135,11 @@ function persistVotes(): Sink<unknown, PersistResult> {
 }
 
 /**
- * RxJS operator that buffers speech records and persists to database
+ * RxJS operator that buffers intervention records and persists to database
  */
-function persistSpeeches(): Sink<unknown, PersistResult> {
-  return createBatchedSink('speeches', async (batch) => {
-    const result = await upsertSpeeches(batch);
+function persistInterventions(): Sink<unknown, PersistResult> {
+  return createBatchedSink('interventions', async (batch) => {
+    const result = await upsertInterventions(batch);
     return { totalSuccess: result.success, totalSkipped: result.skipped };
   });
 }
@@ -224,11 +224,11 @@ function persistPersonDetail(): Sink<unknown, PersistResult> {
         { batches: 0, totalSuccess: 0, totalSkipped: 0 },
       ),
       map((acc) => ({ source: 'personDetail', ...acc })),
-      tap((r) =>
-        { console.log(
+      tap((r) => {
+        console.log(
           `[personDetail] Complete: ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped`,
-        ); },
-      ),
+        );
+      }),
     );
 }
 
@@ -236,10 +236,10 @@ export {
   persistDeputies,
   persistInitiatives,
   persistInterestDeclarations,
+  persistInterventions,
   persistOrganMembers,
   persistParties,
   persistPersonDetail,
-  persistSpeeches,
   persistVotes,
   type PersistResult,
 };
