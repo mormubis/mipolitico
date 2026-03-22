@@ -162,11 +162,31 @@ export const SecurityInputSchema = z.object({
   securityType: z.string(),
 });
 
+export const DonationInputSchema = z.object({
+  benefactor: z.string().optional(),
+  description: z.string(),
+});
+export type DonationInput = z.infer<typeof DonationInputSchema>;
+
+export const FoundationInputSchema = z.object({
+  description: z.string().optional(),
+  recipient: z.string(),
+});
+export type FoundationInput = z.infer<typeof FoundationInputSchema>;
+
+export const ObservationInputSchema = z.object({
+  text: z.string(),
+});
+export type ObservationInput = z.infer<typeof ObservationInputSchema>;
+
 export const InterestDeclarationInputSchema = z.object({
   bankAccounts: z.array(BankAccountInputSchema).optional(),
   deputyId: z.string(),
+  donations: z.array(DonationInputSchema).optional(),
+  foundations: z.array(FoundationInputSchema).optional(),
   incomeSources: z.array(IncomeSourceInputSchema).optional(),
   movableAssets: z.array(MovableAssetInputSchema).optional(),
+  observations: z.array(ObservationInputSchema).optional(),
   pdfUrl: z.string().optional(),
   professionalActivities: z.array(ProfessionalActivityInputSchema).optional(),
   realEstate: z.array(RealEstateAssetInputSchema).optional(),
