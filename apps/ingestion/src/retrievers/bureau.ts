@@ -9,14 +9,24 @@ import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
 
-const Schema = z.object({
-  endDate: z.string(),
-  group: z.string(),
-  name: z.string(),
-  organName: z.string(),
-  position: z.string(),
-  startDate: z.string(),
-});
+// The JSON export uses Spanish PascalCase field names matching the original API.
+const Schema = z
+  .object({
+    Cargo: z.string(),
+    FechaAlta: z.string(),
+    FechaBaja: z.string(),
+    Grupo: z.string(),
+    Nombre: z.string(),
+    NombreOrgano: z.string(),
+  })
+  .transform((raw) => ({
+    endDate: raw.FechaBaja,
+    group: raw.Grupo,
+    name: raw.Nombre,
+    organName: raw.NombreOrgano,
+    position: raw.Cargo,
+    startDate: raw.FechaAlta,
+  }));
 
 const retriever: Retriever<Model> = ({ browser, url, validationMode }) => {
   return new Observable((subscriber) => {
@@ -37,8 +47,9 @@ const retriever: Retriever<Model> = ({ browser, url, validationMode }) => {
         const body = await response.body();
         const parser = validate(Schema, validationMode);
 
+        // JSON export is a flat object with numeric keys: { "0": {...}, "1": {...} }
         oboe(Readable.from(body))
-          .node('data.*', (item) => {
+          .node('!.*', (item) => {
             const record = parser(item, url);
             if (record) subscriber.next(record);
           })

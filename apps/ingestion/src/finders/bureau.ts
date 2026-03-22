@@ -18,11 +18,9 @@ const finder: Finder = ({ browser }) =>
         const organTypes = await page
           .locator('select')
           .nth(1)
-          .evaluateAll((selects) => {
-            const select = selects[0] as unknown as {
-              options: { value: string }[];
-            };
-            return [...select.options].map((o) => o.value);
+          .evaluate((select) => {
+            const el = select as unknown as { options: { value: string }[] };
+            return [...el.options].map((o) => o.value);
           });
 
         for (const organType of organTypes) {
