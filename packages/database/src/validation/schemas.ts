@@ -50,8 +50,12 @@ export const VotingInputSchema = z.object({
 export type VotingInput = z.infer<typeof VotingInputSchema>;
 
 // Input schema for intervention.ts scraper output
-export const SpeechInputSchema = z.object({
+export const InterventionInputSchema = z.object({
+  endTime: z.string().optional(),
+  initiativeSubject: z.string().optional(),
+  interventionType: z.string().optional(),
   order: z.number(),
+  organ: z.string().optional(),
   sessionDate: z.string(),
   sessionId: z.string(),
   sessionTitle: z.string(),
@@ -59,9 +63,12 @@ export const SpeechInputSchema = z.object({
   speaker: z.string(),
   speakerName: z.string(),
   speakerRole: z.string().optional(),
+  startTime: z.string().optional(),
   text: z.string(),
+  videoDownloadUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
 });
-export type SpeechInput = z.infer<typeof SpeechInputSchema>;
+export type InterventionInput = z.infer<typeof InterventionInputSchema>;
 
 // Input schema for bureau.ts scraper output
 export const BureauInputSchema = z.object({
