@@ -1,12 +1,19 @@
 import { prisma } from '@congress/database';
 import { EMPTY, from, mergeMap, scan } from 'rxjs';
 
-
 import type { Model as DetailModel } from '../retrievers/intervention-detail.ts';
 import type { Model as BulkModel } from '../retrievers/intervention.ts';
 import type { Processor } from '../types.ts';
 import type { InterventionInput } from '@congress/database';
 
+// Ordering assumption: bulk metadata records (intervention source) must arrive
+// before their matching detail records (intervention-detail source) for enrichment
+// to work. This is naturally guaranteed in practice because:
+// - intervention: fetches a single JSON file via oboe (~seconds, no Playwright)
+// - intervention-detail: scrapes ~200+ HTML pages via Playwright (~minutes)
+// If a detail record arrives before its bulk rows, it still emits — just without
+// optional enrichment fields (videoUrl, organ, etc.). The text content is preserved.
+//
 // Key: sessionUrl (fragment-stripped from ENLACETEXTOINTEGRO)
 // Value: array of bulk metadata rows for that session
 type MetadataMap = Map<string, BulkModel[]>;
