@@ -423,6 +423,9 @@ model InterestDeclaration {
   bankAccounts           BankAccount[]
   professionalActivities ProfessionalActivity[]
   incomeSources          IncomeSource[]
+  donations              Donation[]
+  foundations            Foundation[]
+  observations           Observation[]
 
   /// One declaration per deputy per year.
   @@unique([deputyId, year])
@@ -450,10 +453,62 @@ model RealEstateAsset {
   createdAt        DateTime            @default(now())
   /// Timestamp of last record update.
   updatedAt        DateTime            @updatedAt
+  /// Linked entities.
+  declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
+/// Gift or donation received by a deputy (Donaciones y regalos).
+/// Source: TIPO=DONACION rows in the docacteco bulk JSON.
+model Donation {
+  id            String              @id @default(cuid())
+  declarationId String
+  /// Description of the gift or donation.
+  description   String
+  /// Name of the person or entity who gave the gift. Null if not specified.
+  benefactor    String?
+  /// Timestamp of record creation.
+  createdAt     DateTime            @default(now())
+  /// Timestamp of last record update.
+  updatedAt     DateTime            @updatedAt
 
   /// Linked entities.
-  declaration      InterestDeclaration @relation(fields: [declarationId], references: [id])
+  declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
 }
+
+/// Foundation or association membership/contribution declared by a deputy (Fundaciones y asociaciones).
+/// Source: TIPO=FUNDACIONES rows in the docacteco bulk JSON.
+model Foundation {
+  id            String              @id @default(cuid())
+  declarationId String
+  /// Name of the foundation or association receiving the contribution.
+  recipient     String
+  /// Description of the contribution or membership type.
+  description   String?
+  /// Timestamp of record creation.
+  createdAt     DateTime            @default(now())
+  /// Timestamp of last record update.
+  updatedAt     DateTime            @updatedAt
+
+  /// Linked entities.
+  declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
+/// Free-text observation added by a deputy to their interest declaration.
+/// Source: TIPO=OBSERVACIONES rows in the docacteco bulk JSON.
+model Observation {
+  id            String              @id @default(cuid())
+  declarationId String
+  /// Full text of the observation.
+  text          String
+  /// Timestamp of record creation.
+  createdAt     DateTime            @default(now())
+  /// Timestamp of last record update.
+  updatedAt     DateTime            @updatedAt
+
+  /// Linked entities.
+  declaration   InterestDeclaration @relation(fields: [declarationId], references: [id])
+}
+
 
 /// Movable asset declared by a deputy (Bienes muebles — vehicles, boats, art, etc.).
 model MovableAsset {
