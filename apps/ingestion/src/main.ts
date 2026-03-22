@@ -24,6 +24,7 @@ import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
 import { processor as interestDeclarationsDetailProcessor } from './processors/interest-declarations-detail.ts';
+import { processor as interestDeclarationsProcessor } from './processors/interest-declarations.ts';
 import { processor as interventionProcessor } from './processors/intervention.ts';
 import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
@@ -160,6 +161,14 @@ const PIPELINES: PipelineEntry<unknown, unknown>[] = [
     sink: persistInterventions(),
   },
   { sources: ['initiatives'], sink: persistInitiatives() },
+  {
+    sources: ['interest-declarations'],
+    processor: interestDeclarationsProcessor as OperatorFunction<
+      unknown,
+      unknown
+    >,
+    sink: persistInterestDeclarations(),
+  },
   {
     sources: ['interest-declarations-detail'],
     processor: interestDeclarationsDetailProcessor as OperatorFunction<

@@ -1,16 +1,74 @@
-import { identity } from 'rxjs';
+import { prisma } from '@congress/database';
+import { EMPTY, from, mergeMap, pipe, reduce } from 'rxjs';
 
+import type { Model } from '../retrievers/interest-declarations.ts';
 import type { Processor } from '../types.ts';
 import type { InterestDeclarationInput } from '@congress/database';
 
-/**
- * Identity processor for interest declarations.
- *
- * Currently passes records through unchanged. In the future, this processor
- * will download the PDF at pdfUrl and extract structured financial data
- * (real estate, bank accounts, securities, income sources) to populate the
- * full InterestDeclarationInput schema.
- */
-const processor: Processor<InterestDeclarationInput> = identity;
+const processor: Processor<Model, InterestDeclarationInput> = pipe(
+  reduce((acc: Map<string, Model[]>, row) => {
+    const existing = acc.get(row.NOMBRE) ?? [];
+    acc.set(row.NOMBRE, [...existing, row]);
+    return acc;
+  }, new Map<string, Model[]>()),
+  mergeMap((map) =>
+    from(
+      Promise.all(
+        [...map.entries()].map(async ([name, rows]) => {
+          const firstRow = rows[0];
+          if (!firstRow) return null;
+
+          const yearStr = firstRow.FECHAREGISTRO.split('/')[2];
+          const year = yearStr ? parseInt(yearStr, 10) : NaN;
+          if (isNaN(year)) return null;
+
+          const person = await prisma.person.findFirst({
+            where: { name: { contains: name } },
+            select: {
+              deputies: {
+                select: { id: true },
+                orderBy: { startDate: 'desc' },
+                take: 1,
+              },
+            },
+          });
+
+          const deputyId = person?.deputies[0]?.id;
+          if (!deputyId) {
+            console.warn(
+              `[interestDeclarations] No deputy found for name: ${name}`,
+            );
+            return null;
+          }
+
+          const professionalActivities = rows
+            .filter((r) => r.TIPO === 'ACTIVIDAD')
+            .map((r) => ({
+              entity: r.EMPLEADOR ?? '',
+              position: r.DESCRIPCION ?? '',
+              remunerated: r.SECTOR === 'PÚBLICO' || r.SECTOR === 'PRIVADO',
+              startDate: r.PERIODO,
+            }));
+
+          const result: InterestDeclarationInput = {
+            deputyId,
+            year,
+            professionalActivities:
+              professionalActivities.length > 0
+                ? professionalActivities
+                : undefined,
+          };
+
+          return result;
+        }),
+      ),
+    ),
+  ),
+  mergeMap((results) =>
+    results.length > 0
+      ? from(results.filter((r): r is InterestDeclarationInput => r !== null))
+      : EMPTY,
+  ),
+);
 
 export { processor };
