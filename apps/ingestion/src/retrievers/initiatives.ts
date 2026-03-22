@@ -49,9 +49,20 @@ const retriever: Retriever<InitiativeInput> = ({
         oboe(Readable.fromWeb(response.body))
           .node('!.*', (item: unknown) => {
             const raw = item as Record<string, unknown>;
+            // Map Spanish UPPERCASE JSON fields to camelCase schema fields
             const result = InitiativeInputSchema.safeParse({
-              ...raw,
+              bulletinDate: raw.FECHA_BOLETIN,
+              bulletinNumber: raw.NUMERO_BOLETIN,
+              currentStatus: raw.SITUACIONACTUAL,
+              fileNumber: raw.NUMEXPEDIENTE,
+              lawDate: raw.FECHA_LEY,
+              lawNumber: raw.NUMERO_LEY,
+              lawTitle: raw.TITULO_LEY,
               legislature: CURRENT_LEGISLATURE,
+              pdf: raw.PDF,
+              presentationDate: raw.FECHAPRESENTACION,
+              processingResult: raw.RESULTADOTRAMITACION,
+              subject: raw.OBJETO,
               type: TIPO_MAP[raw.TIPO as string] ?? raw.TIPO,
             });
             if (result.success) {
