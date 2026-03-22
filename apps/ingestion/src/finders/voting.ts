@@ -15,30 +15,28 @@ const finder: Finder = ({ browser }) =>
         });
 
         // Collect all years available for the current legislature
-        const years = await page
-          .locator('#calAnios option')
-          .evaluateAll((opts) =>
-            opts.map((o) => (o as unknown as { value: string }).value),
-          );
+        const years = await page.locator('#calAnios').evaluate((el) => {
+          const s = el as unknown as { options: { value: string }[] };
+          return [...s.options].map((o) => o.value);
+        });
 
         for (const year of years) {
-          // Select the year
+          // Select the year and wait for navigation to settle
           await Promise.all([
-            page.waitForLoadState('networkidle'),
+            page.waitForLoadState('domcontentloaded'),
             page.locator('#calAnios').selectOption(year),
           ]);
 
           // Collect all months available for this year
-          const months = await page
-            .locator('#calMeses option')
-            .evaluateAll((opts) =>
-              opts.map((o) => (o as unknown as { value: string }).value),
-            );
+          const months = await page.locator('#calMeses').evaluate((el) => {
+            const s = el as unknown as { options: { value: string }[] };
+            return [...s.options].map((o) => o.value);
+          });
 
           for (const month of months) {
-            // Select the month
+            // Select the month and wait for navigation to settle
             await Promise.all([
-              page.waitForLoadState('networkidle'),
+              page.waitForLoadState('domcontentloaded'),
               page.locator('#calMeses').selectOption(month),
             ]);
 
@@ -47,7 +45,7 @@ const finder: Finder = ({ browser }) =>
 
             for (const day of plenoDays) {
               await Promise.all([
-                page.waitForLoadState('networkidle'),
+                page.waitForLoadState('domcontentloaded'),
                 day.click(),
               ]);
 
