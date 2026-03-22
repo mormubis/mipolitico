@@ -7,7 +7,7 @@ datasource db {
 }
 
 /// Represents an individual in the Spanish Congress (deputy, speaker, or official).
-/// Serves as the identity anchor for person-centric data. Deputies, speeches, and bureau
+/// Serves as the identity anchor for person-centric data. Deputies, interventions, and bureau
 /// members link to Person after entity resolution. Name is the natural key for deduplication.
 ///
 /// Data source: person.ts scraper (DiputadosActivos JSON)
@@ -250,7 +250,8 @@ model Intervention {
   /// Linked entities.
   person          Person?  @relation(fields: [personId], references: [id])
 
-  /// Ensures one intervention record per session order.
+  /// Ensures one intervention record per session order. Sessions may have multiple
+  /// interventions; orderInSession tracks their sequence for historical reconstruction.
   @@unique([sessionId, orderInSession])
 }
 
