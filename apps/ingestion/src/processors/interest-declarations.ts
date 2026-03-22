@@ -22,8 +22,11 @@ const processor: Processor<Model, InterestDeclarationInput> = pipe(
           const year = yearStr ? parseInt(yearStr, 10) : NaN;
           if (isNaN(year)) return null;
 
+          // Normalize name: docacteco uses "Surname,Name" (no space after comma)
+          // but Person stores "Surname, Name" (space after comma)
+          const normalizedName = name.replace(/,(\S)/g, ', $1');
           const person = await prisma.person.findFirst({
-            where: { name },
+            where: { name: normalizedName },
             select: {
               deputies: {
                 select: { id: true },
