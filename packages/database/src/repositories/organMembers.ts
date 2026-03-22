@@ -53,10 +53,6 @@ export async function upsertOrganMembers(
         continue;
       }
 
-      const person = await tx.person.findUnique({
-        where: { name: data.name },
-      });
-
       const organType = deriveOrganType(data.organName);
 
       await tx.organMember.upsert({
@@ -69,7 +65,7 @@ export async function upsertOrganMembers(
           },
         },
         create: {
-          personId: person?.id ?? null,
+          personId: data.personId ?? null,
           name: data.name,
           position: data.position,
           organ: data.organName,
@@ -79,7 +75,7 @@ export async function upsertOrganMembers(
           endDate: parseSpanishDate(data.endDate),
         },
         update: {
-          personId: person?.id ?? null,
+          personId: data.personId ?? null,
           organType,
           partyGroup: data.group,
           endDate: parseSpanishDate(data.endDate),

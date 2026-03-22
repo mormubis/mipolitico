@@ -76,6 +76,7 @@ export const BureauInputSchema = z.object({
   group: z.string(),
   name: z.string(),
   organName: z.string(),
+  personId: z.string().optional(), // resolved by processor before storage
   position: z.string(),
   startDate: z.string(),
 });
