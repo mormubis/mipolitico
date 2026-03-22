@@ -50,13 +50,36 @@ const processor: Processor<Model, InterestDeclarationInput> = pipe(
               startDate: r.PERIODO,
             }));
 
+          const donations = rows
+            .filter((r) => r.TIPO === 'DONACION')
+            .map((r) => ({
+              ...(r.BENEFACTOR != null && { benefactor: r.BENEFACTOR }),
+              description: r.DESCRIPCION ?? '',
+            }));
+
+          const foundations = rows
+            .filter((r) => r.TIPO === 'FUNDACIONES')
+            .map((r) => ({
+              ...(r.DESCRIPCION != null && { description: r.DESCRIPCION }),
+              recipient: r.DESTINATARIO ?? '',
+            }));
+
+          const observations = rows
+            .filter((r) => r.TIPO === 'OBSERVACIONES')
+            .map((r) => ({
+              text: r.OBSERVACIONES ?? '',
+            }));
+
           const result: InterestDeclarationInput = {
             deputyId,
-            year,
+            donations: donations.length > 0 ? donations : undefined,
+            foundations: foundations.length > 0 ? foundations : undefined,
+            observations: observations.length > 0 ? observations : undefined,
             professionalActivities:
               professionalActivities.length > 0
                 ? professionalActivities
                 : undefined,
+            year,
           };
 
           return result;
