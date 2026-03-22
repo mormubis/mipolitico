@@ -1,26 +1,21 @@
 import { prisma } from '../client.ts';
-import {
-  
-  
-  
-  applyPaginationDefaults
-} from './index.ts';
+import { applyPaginationDefaults } from './index.ts';
 
-import type {PaginatedResult, PaginationInput, SortInput} from './index.ts';
-import type { Speech } from '@prisma/client';
+import type { PaginatedResult, PaginationInput, SortInput } from './index.ts';
+import type { Intervention } from '@prisma/client';
 
-export interface SpeechFilters {
+export interface InterventionFilters {
   personId?: string;
   speakerName?: string; // Partial match
   dateFrom?: Date;
   dateTo?: Date;
 }
 
-export async function findSpeeches(
-  filters: SpeechFilters = {},
+export async function findInterventions(
+  filters: InterventionFilters = {},
   pagination: PaginationInput = {},
   sort: SortInput = {},
-): Promise<PaginatedResult<Speech>> {
+): Promise<PaginatedResult<Intervention>> {
   const { limit, offset } = applyPaginationDefaults(pagination);
 
   const where = {
@@ -41,20 +36,22 @@ export async function findSpeeches(
     : { sessionDate: 'desc' as const };
 
   const [data, total] = await Promise.all([
-    prisma.speech.findMany({
+    prisma.intervention.findMany({
       where,
       orderBy,
       take: limit,
       skip: offset,
     }),
-    prisma.speech.count({ where }),
+    prisma.intervention.count({ where }),
   ]);
 
   return { data, total, limit, offset };
 }
 
-export async function findSpeechById(id: string): Promise<Speech | null> {
-  return prisma.speech.findUnique({
+export async function findInterventionById(
+  id: string,
+): Promise<Intervention | null> {
+  return prisma.intervention.findUnique({
     where: { id },
   });
 }
