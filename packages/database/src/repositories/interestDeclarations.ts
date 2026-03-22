@@ -41,6 +41,9 @@ export async function upsertInterestDeclaration(
     await tx.professionalActivity.deleteMany({ where: { declarationId: id } });
     await tx.realEstateAsset.deleteMany({ where: { declarationId: id } });
     await tx.security.deleteMany({ where: { declarationId: id } });
+    await tx.donation.deleteMany({ where: { declarationId: id } });
+    await tx.foundation.deleteMany({ where: { declarationId: id } });
+    await tx.observation.deleteMany({ where: { declarationId: id } });
 
     if (data.bankAccounts?.length) {
       await tx.bankAccount.createMany({
@@ -77,6 +80,21 @@ export async function upsertInterestDeclaration(
     if (data.securities?.length) {
       await tx.security.createMany({
         data: data.securities.map((r) => ({ declarationId: id, ...r })),
+      });
+    }
+    if (data.donations?.length) {
+      await tx.donation.createMany({
+        data: data.donations.map((r) => ({ declarationId: id, ...r })),
+      });
+    }
+    if (data.foundations?.length) {
+      await tx.foundation.createMany({
+        data: data.foundations.map((r) => ({ declarationId: id, ...r })),
+      });
+    }
+    if (data.observations?.length) {
+      await tx.observation.createMany({
+        data: data.observations.map((r) => ({ declarationId: id, ...r })),
       });
     }
   });
