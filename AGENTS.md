@@ -119,6 +119,24 @@ retrievers. Follow them when adding or modifying ingestion pipelines.
 
 ---
 
+## Ingestion Rate Limiting
+
+The congreso.es server blocks IPs that send too many requests in a short period.
+The block is broad (affects all subdomains and endpoints) and lasts at least 30
+minutes. Signs of blocking: `HTTP/2 403` from all congreso.es URLs.
+
+- The network pool (`src/network/pool.ts`) limits to 5 concurrent requests with
+  1–5 second random delays. This may be insufficient for a full run.
+- Fetch-based pipelines (person, initiatives, interest-declarations,
+  intervention) are less likely to trigger blocks than Playwright-based ones
+  (voting, bureau, person-detail, intervention-detail) which load full HTML
+  pages.
+- When developing, run individual sources (`--source=person`) rather than a full
+  run to avoid triggering the block.
+- If blocked, wait at least 30 minutes before retrying.
+
+---
+
 ## Pre-commit Hooks
 
 `lint-staged` runs on every commit (via Husky):
