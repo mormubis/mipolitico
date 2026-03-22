@@ -40,7 +40,7 @@ model Person {
 
   /// Linked entities.
   deputies      Deputy[]
-  speeches      Speech[]
+  interventions Intervention[]
   organMembers OrganMember[]
 
   /// Ensures one Person record per unique name. Deduplicates across multiple data sources.
@@ -200,48 +200,57 @@ model Vote {
   @@unique([sessionId, deputySeat])
 }
 
-/// Represents a parliamentary speech or intervention in a session.
-/// Tracks speaker identity, content, and session context. Speaker reconciliation with
-/// Person records happens post-ingestion due to name parsing challenges and entity
-/// resolution delays.
+/// Represents a parliamentary intervention (speech) in a session.
+/// Metadata comes from the bulk intervention JSON (intervention pipeline).
+/// Text content comes from the HTML session transcript (intervention-detail pipeline).
+/// Both sources are merged in a processor before storage — no partial records.
 ///
-/// Data source: intervention.ts scraper (Sesiones JSON)
-model Speech {
-  id            String   @id @default(cuid())
-  /// Optional reference to Person. Null until entity resolution matches speaker name
-  /// to Person records. Some speakers may never match (committee members, external guests).
-  personId      String?
-  /// Session identifier. Not a foreign key to VotingSession (different scraper source).
-  sessionId     String
+/// Data source: intervention.ts + intervention-detail.ts scrapers
+model Intervention {
+  id              String   @id @default(cuid())
+  /// Optional reference to Person. Null until entity resolution matches speaker name.
+  personId        String?
+  /// Session identifier derived from the transcript URL (e.g. "DSCD-15-PL-1.CODI.").
+  sessionId       String
   /// Date of the parliamentary session.
-  sessionDate   DateTime
+  sessionDate     DateTime
   /// Title or topic of the session.
-  sessionTitle  String
-  /// URL to the original session record.
-  sessionUrl    String
-  /// Raw speaker text as extracted from source. May include role/title prefix
-  /// (e.g., "El Presidente: ...", "La Sra. García García: ...").
-  /// Kept for audit trail and re-parsing if needed.
-  speakerRaw    String
-  /// Parsed speaker name extracted from speakerRaw. Used for Person reconciliation.
-  speakerName   String
-  /// Optional speaker role or title (e.g., "Presidente", "Diputado", "Secretario").
-  speakerRole   String?
-  /// Full text of the speech or intervention.
-  text          String
-  /// Sequential order within the session. Used with sessionId for uniqueness.
-  /// Enables reconstruction of discussion flow.
-  orderInSession Int
+  sessionTitle    String
+  /// URL to the original session transcript page (without fragment).
+  sessionUrl      String
+  /// Raw speaker text as extracted from source (e.g. "El señor GARCÍA GARCÍA:").
+  speakerRaw      String
+  /// Parsed speaker name. Used for Person reconciliation.
+  speakerName     String
+  /// Speaker role or title (e.g. "Presidente", "Diputado"). Null if not specified.
+  speakerRole     String?
+  /// Full text of the intervention.
+  text            String
+  /// Sequential order within the session.
+  orderInSession  Int
+  /// Parliamentary organ where the intervention took place.
+  organ           String?
+  /// Description of the initiative being discussed.
+  initiativeSubject String?
+  /// Intervention type (e.g. "Intervención", "Réplica").
+  interventionType  String?
+  /// Start time of the intervention (HH:MM:SS format from bulk JSON).
+  startTime       String?
+  /// End time of the intervention (HH:MM:SS format from bulk JSON).
+  endTime         String?
+  /// URL to deferred video recording.
+  videoUrl        String?
+  /// URL to direct video download.
+  videoDownloadUrl String?
   /// Timestamp of record creation.
-  createdAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
   /// Timestamp of last record update.
-  updatedAt     DateTime @updatedAt
+  updatedAt       DateTime @updatedAt
 
   /// Linked entities.
-  person        Person?  @relation(fields: [personId], references: [id])
+  person          Person?  @relation(fields: [personId], references: [id])
 
-  /// Ensures one speech record per session order. Sessions may have multiple speeches;
-  /// orderInSession tracks their sequence for historical reconstruction.
+  /// Ensures one intervention record per session order.
   @@unique([sessionId, orderInSession])
 }
 
