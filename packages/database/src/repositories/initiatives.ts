@@ -202,16 +202,30 @@ export async function upsertInitiatives(
         }
 
         if (bestId && bestScore >= ENRICHMENT_THRESHOLD) {
-          await tx.initiative.update({
-            where: { id: bestId },
-            data: {
+          // Check bulletinNumber is not already taken by another initiative
+          const existing = await tx.initiative.findFirst({
+            where: {
+              legislature,
               bulletinNumber: approvedLaw.bulletinNumber,
-              number: approvedLaw.lawNumber ?? null,
-              bulletinDate: parseDate(approvedLaw.bulletinDate),
-              enactedDate: parseDate(approvedLaw.lawDate),
-              pdfUrl: approvedLaw.pdf ?? null,
+              id: { not: bestId },
             },
           });
+          if (existing) {
+            console.warn(
+              `[initiatives] Skipping enrichment for "${approvedLaw.lawTitle.substring(0, 60)}" — bulletinNumber ${approvedLaw.bulletinNumber} already taken`,
+            );
+          } else {
+            await tx.initiative.update({
+              where: { id: bestId },
+              data: {
+                bulletinNumber: approvedLaw.bulletinNumber,
+                number: approvedLaw.lawNumber ?? null,
+                bulletinDate: parseDate(approvedLaw.bulletinDate),
+                enactedDate: parseDate(approvedLaw.lawDate),
+                pdfUrl: approvedLaw.pdf ?? null,
+              },
+            });
+          }
         } else {
           console.warn(
             `[initiatives] Could not enrich "${approvedLaw.lawTitle.substring(0, 60)}" — best score: ${String(Math.round(bestScore * 100))}%`,
