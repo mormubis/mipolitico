@@ -1,4 +1,4 @@
-import { EMPTY, mergeMap, of, scan } from 'rxjs';
+import { EMPTY, from, mergeMap, scan } from 'rxjs';
 
 import type { Model as DetailModel } from '../retrievers/intervention-detail.ts';
 import type { Model as BulkModel } from '../retrievers/intervention.ts';
@@ -9,13 +9,17 @@ import type { InterventionInput } from '@congress/database';
 // Value: array of bulk metadata rows for that session
 type MetadataMap = Map<string, BulkModel[]>;
 
-interface AccState { map: MetadataMap; ready: InterventionInput[] }
+interface AccState {
+  map: MetadataMap;
+  ready: InterventionInput[];
+}
 
 function isBulkModel(record: unknown): record is BulkModel {
   return (
     typeof record === 'object' &&
     record !== null &&
-    'ENLACETEXTOINTEGRO' in record
+    'ENLACETEXTOINTEGRO' in record &&
+    'ORADOR' in record
   );
 }
 
@@ -24,7 +28,9 @@ function isDetailModel(record: unknown): record is DetailModel {
     typeof record === 'object' &&
     record !== null &&
     'sessionId' in record &&
-    'text' in record
+    'text' in record &&
+    'sessionUrl' in record &&
+    'speakerName' in record
   );
 }
 
@@ -35,7 +41,12 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
         if (isBulkModel(record)) {
           // Accumulate bulk metadata by session URL (strip fragment)
           const url = record.ENLACETEXTOINTEGRO.split('#')[0];
-          if (!url) return { ...acc, ready: [] };
+          if (!url) {
+            console.warn(
+              '[intervention] Skipping bulk row with empty ENLACETEXTOINTEGRO',
+            );
+            return { map: acc.map, ready: [] };
+          }
           const existing = acc.map.get(url) ?? [];
           acc.map.set(url, [...existing, record]);
           return { map: acc.map, ready: [] };
@@ -73,11 +84,11 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
         }
 
         // Unknown record shape — skip silently
-        return { ...acc, ready: [] };
+        return { map: acc.map, ready: [] };
       },
       { map: new Map(), ready: [] },
     ),
-    mergeMap(({ ready }) => (ready.length > 0 ? of(...ready) : EMPTY)),
+    mergeMap(({ ready }) => (ready.length > 0 ? from(ready) : EMPTY)),
   );
 
 export { processor };
