@@ -205,6 +205,7 @@ const SCRAPER_TYPE_MAP: Record<string, string> = {
   'intervention': 'interventions',
   'intervention-detail': 'interventions',
   'initiatives': 'initiatives',
+  'interest-declarations': 'interestDeclarations',
   'interest-declarations-detail': 'interestDeclarationsDetail',
 };
 

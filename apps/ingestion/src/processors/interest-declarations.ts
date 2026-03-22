@@ -23,7 +23,7 @@ const processor: Processor<Model, InterestDeclarationInput> = pipe(
           if (isNaN(year)) return null;
 
           const person = await prisma.person.findFirst({
-            where: { name: { contains: name } },
+            where: { name },
             select: {
               deputies: {
                 select: { id: true },
