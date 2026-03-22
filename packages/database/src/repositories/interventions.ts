@@ -7,8 +7,9 @@ import type { InterventionInput } from '../validation/index.ts';
 function parseSpanishDate(dateStr: string): Date | null {
   const parts = dateStr.split('/').map(Number);
   const [day, month, year] = parts;
-  if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year))
-    {return null;}
+  if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year)) {
+    return null;
+  }
   return new Date(year, month - 1, day);
 }
 
@@ -37,10 +38,6 @@ async function upsertInterventions(
         continue;
       }
 
-      const person = await tx.person.findFirst({
-        where: { name: { contains: data.speakerName } },
-      });
-
       await tx.intervention.upsert({
         where: {
           sessionId_orderInSession: {
@@ -49,7 +46,7 @@ async function upsertInterventions(
           },
         },
         create: {
-          personId: person?.id ?? null,
+          personId: data.personId ?? null,
           sessionId: data.sessionId,
           sessionDate,
           sessionTitle: data.sessionTitle,
@@ -68,7 +65,7 @@ async function upsertInterventions(
           videoDownloadUrl: data.videoDownloadUrl ?? null,
         },
         update: {
-          personId: person?.id ?? null,
+          personId: data.personId ?? null,
           sessionDate,
           sessionTitle: data.sessionTitle,
           speakerRaw: data.speaker,

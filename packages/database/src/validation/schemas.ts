@@ -56,6 +56,7 @@ export const InterventionInputSchema = z.object({
   interventionType: z.string().optional(),
   order: z.number(),
   organ: z.string().optional(),
+  personId: z.string().optional(), // resolved by processor before storage
   sessionDate: z.string(),
   sessionId: z.string(),
   sessionTitle: z.string(),

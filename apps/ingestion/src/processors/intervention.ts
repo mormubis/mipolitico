@@ -1,4 +1,6 @@
+import { prisma } from '@congress/database';
 import { EMPTY, from, mergeMap, scan } from 'rxjs';
+
 
 import type { Model as DetailModel } from '../retrievers/intervention-detail.ts';
 import type { Model as BulkModel } from '../retrievers/intervention.ts';
@@ -89,6 +91,13 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
       { map: new Map(), ready: [] },
     ),
     mergeMap(({ ready }) => (ready.length > 0 ? from(ready) : EMPTY)),
+    mergeMap(async (enriched) => {
+      const person = await prisma.person.findFirst({
+        where: { name: { contains: enriched.speakerName } },
+        select: { id: true },
+      });
+      return { ...enriched, personId: person?.id };
+    }),
   );
 
 export { processor };
