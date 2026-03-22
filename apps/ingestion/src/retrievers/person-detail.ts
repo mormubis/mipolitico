@@ -89,8 +89,10 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
             .getAttribute('href', { timeout: random(1000, 3000) })
             .then((link) => link ?? undefined)
             .catch(() => undefined),
+          // The h1 contains "Name - Legislature - Site" — use the .nombre class
+          // which has the canonical "Surname, Name" format matching Person.name
           page
-            .locator('h1')
+            .locator('[class*="nombre"]')
             .first()
             .textContent()
             .then((t) => (t ?? '').trim())
