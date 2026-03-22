@@ -22,7 +22,15 @@ async function launch(options?: LaunchOptions): Promise<Browser> {
   }
 
   try {
-    const browser = await type.launch(options);
+    // Use the system Chrome binary to avoid Akamai WAF TLS fingerprint detection.
+    // Playwright's bundled Chromium has a different TLS fingerprint than real Chrome,
+    // which congreso.es's Akamai WAF detects and blocks.
+    const executablePath =
+      type === chromium
+        ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        : undefined;
+
+    const browser = await type.launch({ ...options, executablePath });
 
     return new Proxy(browser, {
       get(target: Browser, p: keyof Browser): unknown {

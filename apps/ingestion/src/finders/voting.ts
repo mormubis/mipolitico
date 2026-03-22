@@ -21,11 +21,12 @@ const finder: Finder = ({ browser }) =>
         });
 
         for (const year of years) {
-          // Select the year and wait for navigation to settle
-          await Promise.all([
-            page.waitForLoadState('domcontentloaded'),
-            page.locator('#calAnios').selectOption(year),
-          ]);
+          // Select the year and wait for the calendar to re-render
+          await page.locator('#calAnios').selectOption(year);
+          // Wait for navigation to start and complete
+          await page.waitForLoadState('load');
+          // Extra wait for calendar JS to initialize
+          await page.waitForSelector('#calMeses', { state: 'visible' });
 
           // Collect all months available for this year
           const months = await page.locator('#calMeses').evaluate((el) => {
@@ -34,20 +35,35 @@ const finder: Finder = ({ browser }) =>
           });
 
           for (const month of months) {
-            // Select the month and wait for navigation to settle
-            await Promise.all([
-              page.waitForLoadState('domcontentloaded'),
-              page.locator('#calMeses').selectOption(month),
-            ]);
+            // Select the month and wait for calendar to re-render
+            await page.locator('#calMeses').selectOption(month);
+            await page.waitForLoadState('load');
+            // Wait for calendar days to be present
+            await page.waitForSelector('table td', { state: 'visible' });
 
-            // Click each plenary day to load its session links
-            const plenoDays = await page.locator('td.day.pleno').all();
+            // Get day numbers of pleno days — day numbers are stable across
+            // re-renders, unlike element IDs which are timestamp-based and change
+            const plenoDayNumbers = await page
+              .locator('td.day.pleno')
+              .evaluateAll((tds) =>
+                tds.map((td) =>
+                  (td as unknown as { textContent: string }).textContent.trim(),
+                ),
+              );
 
-            for (const day of plenoDays) {
-              await Promise.all([
-                page.waitForLoadState('domcontentloaded'),
-                day.click(),
-              ]);
+            for (const dayNumber of plenoDayNumbers) {
+              // Re-query by day number text after each click (IDs change on navigation)
+              await page
+                .locator(`td.day.pleno:has-text("${dayNumber}")`)
+                .first()
+                .click();
+              // Wait for JSON links to appear (some days may have no sessions)
+              await page
+                .waitForSelector('a[href$=".json"]', {
+                  state: 'attached',
+                  timeout: 10000,
+                })
+                .catch(() => null);
 
               const jsonLinks = await page.locator('a[href$=".json"]').all();
               for (const link of jsonLinks) {
