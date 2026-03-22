@@ -44,8 +44,11 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
           return;
         }
 
+        // Matches speaker announcements like "El señor PRESIDENTE DEL GOBIERNO (Sánchez):"
+        // Requires the name to start with 2+ uppercase characters to avoid matching
+        // mid-sentence references like "el señor Feijóo" (mixed case).
         const speakerPattern =
-          /((?:El|La) señor[a]? [A-ZÁÉÍÓÚÑ\s]+(?:\([^)]+\))?:)/g;
+          /((?:El|La) señor[a]? [A-ZÁÉÍÓÚÑ]{2}[A-ZÁÉÍÓÚÑ\s]*(?:\([^)]+\))?:)/g;
         const parts = textContent.split(speakerPattern);
 
         let order = 0;
