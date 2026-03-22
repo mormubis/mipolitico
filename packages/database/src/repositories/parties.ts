@@ -51,6 +51,21 @@ export async function upsertParties(
         data: { parentId: parent.id },
       });
     }
+
+    // After all party upserts, link deputies to their party by electoralFormation → shortName
+    const parties = await tx.party.findMany({
+      select: { id: true, shortName: true },
+    });
+
+    for (const party of parties) {
+      await tx.deputy.updateMany({
+        where: {
+          electoralFormation: party.shortName,
+          partyId: null,
+        },
+        data: { partyId: party.id },
+      });
+    }
   });
 
   return { success, skipped };
