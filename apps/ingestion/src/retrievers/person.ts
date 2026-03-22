@@ -12,7 +12,7 @@ type Model = z.infer<typeof Schema>;
 // The bulk JSON uses Spanish UPPERCASE field names matching the original API.
 const Schema = z
   .object({
-    BIOGRAFIA: z.string(),
+    BIOGRAFIA: z.string().optional(),
     CIRCUNSCRIPCION: z.string(),
     FECHAALTA: z.string(),
     FECHAALTAENGRUPOPARLAMENTARIO: z.string(),
@@ -22,7 +22,7 @@ const Schema = z
     NOMBRE: z.string(),
   })
   .transform((raw) => ({
-    biography: raw.BIOGRAFIA,
+    biography: raw.BIOGRAFIA ?? undefined,
     constituency: raw.CIRCUNSCRIPCION,
     electoralFormation: raw.FORMACIONELECTORAL,
     fullConditionDate: raw.FECHACONDICIONPLENA,

@@ -16,7 +16,7 @@ export { InitiativeType };
 
 // Input schema for person.ts scraper output
 export const PersonInputSchema = z.object({
-  biography: z.string(),
+  biography: z.string().optional(),
   constituency: z.string(),
   electoralFormation: z.string(),
   fullConditionDate: z.string(),
