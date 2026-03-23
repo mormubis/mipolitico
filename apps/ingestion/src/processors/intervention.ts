@@ -28,7 +28,7 @@ function isBulkModel(record: unknown): record is BulkModel {
     typeof record === 'object' &&
     record !== null &&
     'ENLACETEXTOINTEGRO' in record &&
-    'ORADOR' in record
+    'LEGISLATURA' in record
   );
 }
 
@@ -66,7 +66,7 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
           const bulkRows = acc.map.get(record.sessionUrl) ?? [];
           const match = bulkRows.find(
             (row) =>
-              row.ORADOR.trim().toLowerCase() ===
+              (row.ORADOR ?? '').trim().toLowerCase() ===
               record.speakerName.trim().toLowerCase(),
           );
 

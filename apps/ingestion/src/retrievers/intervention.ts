@@ -19,7 +19,7 @@ const Schema = z.object({
   INICIOINTERVENCION: z.string().optional(),
   LEGISLATURA: z.string(),
   OBJETOINICIATIVA: z.string().optional(),
-  ORADOR: z.string(),
+  ORADOR: z.string().optional(),
   ORGANO: z.string().optional(),
   SESION: z.string(),
   TIPOINTERVENCION: z.string().optional(),
