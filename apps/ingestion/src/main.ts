@@ -147,12 +147,10 @@ const PIPELINES: PipelineEntry<unknown, unknown>[] = [
   { sources: ['person'], sink: persistDeputies() },
   { sources: ['person-detail'], sink: persistPersonDetail() },
   {
-    // partyProcessor uses reduce() — it accumulates the full merged stream
-    // from both 'person' and 'person-detail' before emitting. This means
-    // parties are persisted only after all retrievers complete (not just
-    // person + person-detail). This is intentional: the shared data$ completes
-    // when all active sources are done, which is when reduce() emits.
-    sources: ['person', 'person-detail'],
+    // partyProcessor uses reduce() — emits after all 'person' records complete.
+    // Party names come from the static PARTY_NAMES map in config/party-parents.ts
+    // since the profile page does not expose full party names.
+    sources: ['person'],
     processor: partyProcessor as OperatorFunction<unknown, unknown>,
     sink: persistParties(),
   },
