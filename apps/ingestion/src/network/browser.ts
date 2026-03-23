@@ -1,12 +1,15 @@
 import pDefer from 'p-defer';
-import { chromium, firefox, webkit } from 'playwright';
+import { chromium } from 'playwright';
 
 import { execute } from './pool.ts';
 import { random, sleep } from '../utils.ts';
 
 import type { Browser, BrowserType, LaunchOptions, Page } from 'playwright';
 
-let available: BrowserType[] = [chromium, firefox, webkit];
+// Only Chromium with the system Chrome binary passes the Akamai WAF on
+// congreso.es. Firefox and WebKit use bundled Playwright binaries that
+// get fingerprinted and blocked.
+let available: BrowserType[] = [chromium];
 // let available: BrowserType[] = [firefox];
 
 async function launch(options?: LaunchOptions): Promise<Browser> {
