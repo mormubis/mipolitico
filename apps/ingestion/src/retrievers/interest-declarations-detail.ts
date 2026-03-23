@@ -28,8 +28,10 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
 
         const [name, pdfActividades, pdfBienesRentas, pdfInteresesEconomicos] =
           await Promise.all([
+            // The h1 contains "Name - Legislature - Site" (given name first).
+            // Use [class*="nombre"] which has "Surname, Name" matching Person.name.
             page
-              .locator('h1')
+              .locator('[class*="nombre"]')
               .first()
               .textContent()
               .then((t) => (t ?? '').trim()),
