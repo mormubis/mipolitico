@@ -4,6 +4,8 @@ import {
   updateScraperMetadata,
 } from '@congress/database';
 import {
+  EMPTY,
+  catchError,
   filter,
   lastValueFrom,
   map,
@@ -295,6 +297,12 @@ async function runAll(
             entry.retriever({ url, ...retrieverOptions }).pipe(
               retry({ delay: 15 * 1000, count: 1 }),
               map((data): TaggedData => ({ source: entry.name, data })),
+              catchError((err: unknown) => {
+                console.warn(
+                  `[${entry.name}] Skipping URL after retry: ${url} — ${(err as Error).message}`,
+                );
+                return EMPTY;
+              }),
             ),
           ),
         ),
