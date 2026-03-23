@@ -53,15 +53,18 @@ const finder: Finder = ({ browser }) =>
 
             for (const dayNumber of plenoDayNumbers) {
               // Re-query by day number text after each click (IDs change on navigation)
+              // Use exact text match to avoid "1" matching "10", "11", etc.
               await page
-                .locator(`td.day.pleno:has-text("${dayNumber}")`)
+                .locator(`td.day.pleno`)
+                .filter({ hasText: new RegExp(`^${dayNumber}$`) })
                 .first()
-                .click();
+                .click({ timeout: 30000 });
+              await page.waitForLoadState('load');
               // Wait for JSON links to appear (some days may have no sessions)
               await page
                 .waitForSelector('a[href$=".json"]', {
                   state: 'attached',
-                  timeout: 10000,
+                  timeout: 15000,
                 })
                 .catch(() => null);
 
