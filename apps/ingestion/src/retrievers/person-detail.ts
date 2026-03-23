@@ -18,7 +18,7 @@ const Schema = z.object({
   name: z.string(),
   parliamentaryGroup: z.string(),
   partyName: z.string().optional(),
-  photoUrl: z.string(),
+  photoUrl: z.string().optional(),
   twitter: z.string().optional(),
   web: z.string().optional(),
 });
@@ -113,9 +113,7 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
             .locator('img[alt="Card image cap"]')
             .first()
             .getAttribute('src', { timeout: random(1000, 3000) })
-            .catch(() => {
-              throw new Error('Failed to extract photo URL');
-            }),
+            .catch(() => undefined),
           page
             .locator('a:has(img[alt="twitter"])')
             .first()
@@ -141,8 +139,7 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
           name,
           parliamentaryGroup,
           partyName,
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          photoUrl: photoUrl!,
+          photoUrl: photoUrl ?? undefined,
           twitter,
           web,
         });

@@ -225,7 +225,7 @@ export const PersonDetailInputSchema = z.object({
   name: z.string().min(1),
   parliamentaryGroup: z.string(),
   partyName: z.string().optional(),
-  photoUrl: z.string(),
+  photoUrl: z.string().optional(),
   twitter: z.string().optional(),
   web: z.string().optional(),
 });
