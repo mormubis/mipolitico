@@ -40,7 +40,6 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
 
         const votingData = (await response.json()) as {
           informacion: {
-            legislatura: number;
             sesion: number;
             numeroVotacion: number;
             fecha: string;
@@ -63,6 +62,10 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
           } & Record<string, unknown>)[];
         };
 
+        // Extract legislature number from URL path (e.g. .../Leg15/... → 15)
+        const legMatch = /\/Leg(\d+)\//.exec(url);
+        const legislature = legMatch ? parseInt(legMatch[1] ?? '0', 10) : 0;
+
         for (const vote of votingData.votaciones) {
           const record = {
             byAssent: votingData.totales.asentimiento === 'Sí',
@@ -70,7 +73,7 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
             deputyName: vote.diputado,
             deputySeat: vote.asiento,
             jsonUrl: url,
-            legislature: votingData.informacion.legislatura,
+            legislature,
             sessionNumber: votingData.informacion.sesion,
             totalAbstention: votingData.totales.abstenciones,
             totalAgainst: votingData.totales.enContra,
