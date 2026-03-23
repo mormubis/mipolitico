@@ -10,19 +10,19 @@ import type { Retriever } from '../types.ts';
 type Model = z.infer<typeof Schema>;
 
 const Schema = z.object({
-  CARGOORADOR: z.string(),
-  ENLACEDESCARGADIRECTA: z.string(),
-  ENLACEDIFERIDO: z.string(),
-  ENLACEPDF: z.string(),
+  CARGOORADOR: z.string().optional(),
+  ENLACEDESCARGADIRECTA: z.string().optional(),
+  ENLACEDIFERIDO: z.string().optional(),
+  ENLACEPDF: z.string().optional(),
   ENLACETEXTOINTEGRO: z.string(),
-  FININTERVENCION: z.string(),
-  INICIOINTERVENCION: z.string(),
+  FININTERVENCION: z.string().optional(),
+  INICIOINTERVENCION: z.string().optional(),
   LEGISLATURA: z.string(),
-  OBJETOINICIATIVA: z.string(),
+  OBJETOINICIATIVA: z.string().optional(),
   ORADOR: z.string(),
-  ORGANO: z.string(),
+  ORGANO: z.string().optional(),
   SESION: z.string(),
-  TIPOINTERVENCION: z.string(),
+  TIPOINTERVENCION: z.string().optional(),
 });
 
 const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
