@@ -1,17 +1,27 @@
 import type { z } from 'zod';
 
+/** Sentinel value emitted by validate() in soft mode when a record is invalid. */
+const SKIP_SENTINEL = Symbol('skip');
+
 function validate<T>(
   schema: z.ZodType<T>,
   mode: 'strict' | 'soft',
-): (data: unknown, context?: string) => T | undefined {
-  return (data, context) => {
+): (data: unknown, source?: string, url?: string) => T | typeof SKIP_SENTINEL {
+  return (data, source, url) => {
     const result = schema.safeParse(data);
     if (result.success) return result.data;
     if (mode === 'strict') throw result.error;
+
+    const issues = result.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join(', ');
+    const location = [source ? `[${source}]` : null, url]
+      .filter(Boolean)
+      .join(' ');
     console.warn(
-      `[validate] Skipping invalid record${context ? ` from ${context}` : ''}: ${result.error.message}`,
+      `[validate] Invalid record${location ? ` ${location}` : ''}: ${issues}`,
     );
-    return undefined;
+    return SKIP_SENTINEL;
   };
 }
 
@@ -154,4 +164,12 @@ function normalizeSpanishName(name: string): string {
   return normalized;
 }
 
-export { normalizeSpanishName, random, romanize, shuffle, sleep, validate };
+export {
+  SKIP_SENTINEL,
+  normalizeSpanishName,
+  random,
+  romanize,
+  shuffle,
+  sleep,
+  validate,
+};

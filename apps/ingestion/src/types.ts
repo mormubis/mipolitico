@@ -18,6 +18,7 @@ type Finder = (options: CommonOptions) => Observable<string>;
  */
 
 interface RetrieverOptions extends CommonOptions {
+  sourceName: string;
   url: string;
   validationMode: 'strict' | 'soft';
 }

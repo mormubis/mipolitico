@@ -257,27 +257,39 @@ function printSummary(
         r.totalSessions !== undefined
           ? ` · ${String(r.totalSessions)} sessions`
           : '';
+      const invalid =
+        (r.totalValidationSkipped ?? 0) > 0
+          ? ` · ${String(r.totalValidationSkipped)} invalid`
+          : '';
       console.log(
         `  ✅ ${entry.label.padEnd(35)} ` +
           `${String(r.totalSuccess).padStart(6)} stored` +
           ` · ${String(r.totalSkipped).padStart(4)} skipped` +
           batches +
-          sessions,
+          sessions +
+          invalid,
       );
     }
   }
 
-  const totalStored = results
-    .filter((r) => r.status === 'success')
-    .reduce((sum, r) => sum + (r.result?.totalSuccess ?? 0), 0);
-  const totalSkipped = results
-    .filter((r) => r.status === 'success')
-    .reduce((sum, r) => sum + (r.result?.totalSkipped ?? 0), 0);
+  const successful = results.filter((r) => r.status === 'success');
+  const totalStored = successful.reduce(
+    (sum, r) => sum + (r.result?.totalSuccess ?? 0),
+    0,
+  );
+  const totalSkipped = successful.reduce(
+    (sum, r) => sum + (r.result?.totalSkipped ?? 0),
+    0,
+  );
+  const totalInvalid = successful.reduce(
+    (sum, r) => sum + (r.result?.totalValidationSkipped ?? 0),
+    0,
+  );
   const errors = results.filter((r) => r.status === 'error').length;
 
-  console.log(divider);
   console.log(
     `  Total: ${String(totalStored)} stored · ${String(totalSkipped)} skipped` +
+      (totalInvalid > 0 ? ` · ${String(totalInvalid)} invalid` : '') +
       (errors > 0 ? ` · ${String(errors)} pipeline(s) failed` : ''),
   );
   console.log(`${divider}\n`);
@@ -394,16 +406,18 @@ async function runAll(
 
       const stream$ = finder$.pipe(
         mergeMap(({ url }) =>
-          entry.retriever({ url, ...retrieverOptions }).pipe(
-            retry({ delay: 15 * 1000, count: 1 }),
-            map((data): TaggedData => ({ source: entry.name, data })),
-            catchError((err: unknown) => {
-              console.warn(
-                `[${entry.name}] Skipping URL after retry: ${url} — ${(err as Error).message}`,
-              );
-              return EMPTY;
-            }),
-          ),
+          entry
+            .retriever({ url, sourceName: entry.name, ...retrieverOptions })
+            .pipe(
+              retry({ delay: 15 * 1000, count: 1 }),
+              map((data): TaggedData => ({ source: entry.name, data })),
+              catchError((err: unknown) => {
+                console.warn(
+                  `[${entry.name}] Skipping URL after retry: ${url} — ${(err as Error).message}`,
+                );
+                return EMPTY;
+              }),
+            ),
         ),
         tap({
           complete: () => {
@@ -475,7 +489,13 @@ async function runAll(
     await lastValueFrom(
       merge(
         ...(pipelineStreams as [Observable<unknown>, ...Observable<unknown>[]]),
-      ).pipe(tap({ complete: () => { printSummary(results); } })),
+      ).pipe(
+        tap({
+          complete: () => {
+            printSummary(results);
+          },
+        }),
+      ),
     );
 
     // Record success for each unique scraper type that ran

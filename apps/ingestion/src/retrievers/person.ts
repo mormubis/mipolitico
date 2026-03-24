@@ -38,7 +38,12 @@ const Schema = z
     startDate: raw.FECHAALTA,
   }));
 
-const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
+const retriever: Retriever<Model> = ({
+  fetch,
+  url,
+  validationMode,
+  sourceName,
+}) => {
   return new Observable((subscriber) => {
     void (async () => {
       try {
@@ -60,8 +65,8 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
 
         oboe(Readable.fromWeb(response.body))
           .node('!.*', (item) => {
-            const record = parser(item, url);
-            if (record) subscriber.next(record);
+            const record = parser(item, sourceName, url);
+            subscriber.next(record as Model);
           })
           .done(() => {
             subscriber.complete();

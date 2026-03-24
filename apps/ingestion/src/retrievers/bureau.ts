@@ -28,7 +28,12 @@ const Schema = z
     startDate: raw.FechaAlta,
   }));
 
-const retriever: Retriever<Model> = ({ browser, url, validationMode }) => {
+const retriever: Retriever<Model> = ({
+  browser,
+  url,
+  validationMode,
+  sourceName,
+}) => {
   return new Observable((subscriber) => {
     void (async () => {
       const page = await browser.newPage();
@@ -50,8 +55,8 @@ const retriever: Retriever<Model> = ({ browser, url, validationMode }) => {
         // JSON export is a flat object with numeric keys: { "0": {...}, "1": {...} }
         oboe(Readable.from(body))
           .node('!.*', (item) => {
-            const record = parser(item, url);
-            if (record) subscriber.next(record);
+            const record = parser(item, sourceName, url);
+            subscriber.next(record as Model);
           })
           .done(() => {
             subscriber.complete();

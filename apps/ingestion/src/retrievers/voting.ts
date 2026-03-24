@@ -27,7 +27,12 @@ const Schema = z.object({
   votingTitle: z.string(),
 });
 
-const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
+const retriever: Retriever<Model> = ({
+  fetch,
+  url,
+  validationMode,
+  sourceName,
+}) => {
   return new Observable<Model>((subscriber) => {
     void (async () => {
       try {
@@ -87,8 +92,12 @@ const retriever: Retriever<Model> = ({ fetch, url, validationMode }) => {
             votingTitle: votingData.informacion.titulo,
           };
 
-          const parsed = validate(Schema, validationMode)(record, url);
-          if (parsed) subscriber.next(parsed);
+          const parsed = validate(Schema, validationMode)(
+            record,
+            sourceName,
+            url,
+          );
+          subscriber.next(parsed as Model);
         }
 
         subscriber.complete();

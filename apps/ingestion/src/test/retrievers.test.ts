@@ -67,6 +67,7 @@ async function main(): Promise<void> {
     const opts = {
       browser,
       fetch: globalThis.fetch,
+      sourceName: 'test',
       validationMode: 'strict' as const,
     };
 

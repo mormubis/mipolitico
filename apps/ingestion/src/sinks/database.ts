@@ -10,6 +10,8 @@ import {
 } from '@congress/database';
 import { bufferCount, map, mergeMap, reduce, scan, tap } from 'rxjs';
 
+import { SKIP_SENTINEL } from '../utils.ts';
+
 import type { Sink } from '../types.ts';
 
 const BATCH_SIZE = 500;
@@ -19,6 +21,7 @@ interface PersistResult {
   batches: number;
   totalSuccess: number;
   totalSkipped: number;
+  totalValidationSkipped?: number;
   totalSessions?: number;
 }
 
@@ -30,6 +33,8 @@ interface BatchResult {
 /**
  * Generic factory that creates a batched persist sink for any upsert function
  * returning { success, skipped }.
+ * Records that are SKIP_SENTINEL (validation failures from validate()) are
+ * counted separately as totalValidationSkipped and excluded from upsert.
  */
 function createBatchedSink(
   tag: string,
@@ -39,23 +44,42 @@ function createBatchedSink(
     source.pipe(
       bufferCount(BATCH_SIZE),
       mergeMap(async (batch) => {
-        const result = await upsert(batch);
+        const validationSkipped = batch.filter(
+          (r) => r === SKIP_SENTINEL,
+        ).length;
+        const valid = batch.filter((r) => r !== SKIP_SENTINEL);
+        const result =
+          valid.length > 0
+            ? await upsert(valid)
+            : { totalSuccess: 0, totalSkipped: 0 };
         return {
           totalSuccess: result.totalSuccess,
           totalSkipped: result.totalSkipped,
+          totalValidationSkipped: validationSkipped,
         };
       }),
       scan(
         (acc, r) => ({
           batch: acc.batch + 1,
-          totalSuccess: r.totalSuccess,
-          totalSkipped: r.totalSkipped,
+          totalSuccess: acc.totalSuccess + r.totalSuccess,
+          totalSkipped: acc.totalSkipped + r.totalSkipped,
+          totalValidationSkipped:
+            acc.totalValidationSkipped + r.totalValidationSkipped,
         }),
-        { batch: 0, totalSuccess: 0, totalSkipped: 0 },
+        {
+          batch: 0,
+          totalSuccess: 0,
+          totalSkipped: 0,
+          totalValidationSkipped: 0,
+        },
       ),
-      tap(({ batch, totalSuccess, totalSkipped }) => {
+      tap(({ batch, totalSuccess, totalSkipped, totalValidationSkipped }) => {
+        const validErr =
+          totalValidationSkipped > 0
+            ? `, ${String(totalValidationSkipped)} invalid`
+            : '';
         console.log(
-          `[${tag}] Batch ${String(batch)}: ${String(totalSuccess)} success, ${String(totalSkipped)} skipped`,
+          `[${tag}] Batch ${String(batch)}: ${String(totalSuccess)} success, ${String(totalSkipped)} skipped${validErr}`,
         );
       }),
       reduce(
@@ -63,13 +87,24 @@ function createBatchedSink(
           batches: acc.batches + 1,
           totalSuccess: acc.totalSuccess + r.totalSuccess,
           totalSkipped: acc.totalSkipped + r.totalSkipped,
+          totalValidationSkipped:
+            acc.totalValidationSkipped + r.totalValidationSkipped,
         }),
-        { batches: 0, totalSuccess: 0, totalSkipped: 0 },
+        {
+          batches: 0,
+          totalSuccess: 0,
+          totalSkipped: 0,
+          totalValidationSkipped: 0,
+        },
       ),
       map((acc) => ({ source: tag, ...acc })),
       tap((r) => {
+        const validErr =
+          r.totalValidationSkipped > 0
+            ? `, ${String(r.totalValidationSkipped)} invalid`
+            : '';
         console.log(
-          `[${tag}] Complete: ${String(r.batches)} batches, ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped`,
+          `[${tag}] Complete: ${String(r.batches)} batches, ${String(r.totalSuccess)} success, ${String(r.totalSkipped)} skipped${validErr}`,
         );
       }),
     );
@@ -95,40 +130,80 @@ function persistVotes(): Sink<unknown, PersistResult> {
     source.pipe(
       bufferCount(BATCH_SIZE),
       mergeMap(async (batch) => {
-        const result = await upsertVotingRecords(batch);
+        const validationSkipped = batch.filter(
+          (r) => r === SKIP_SENTINEL,
+        ).length;
+        const valid = batch.filter((r) => r !== SKIP_SENTINEL);
+        const result =
+          valid.length > 0
+            ? await upsertVotingRecords(valid)
+            : { votes: 0, skipped: 0, sessions: 0 };
         return {
           totalSuccess: result.votes,
           totalSkipped: result.skipped,
           totalSessions: result.sessions,
+          totalValidationSkipped: validationSkipped,
         };
       }),
       scan(
         (acc, r) => ({
           batch: acc.batch + 1,
-          totalSuccess: r.totalSuccess,
-          totalSkipped: r.totalSkipped,
-          totalSessions: r.totalSessions,
+          totalSuccess: acc.totalSuccess + r.totalSuccess,
+          totalSkipped: acc.totalSkipped + r.totalSkipped,
+          totalSessions: acc.totalSessions + r.totalSessions,
+          totalValidationSkipped:
+            acc.totalValidationSkipped + r.totalValidationSkipped,
         }),
-        { batch: 0, totalSuccess: 0, totalSkipped: 0, totalSessions: 0 },
+        {
+          batch: 0,
+          totalSuccess: 0,
+          totalSkipped: 0,
+          totalSessions: 0,
+          totalValidationSkipped: 0,
+        },
       ),
-      tap(({ batch, totalSessions, totalSuccess, totalSkipped }) => {
-        console.log(
-          `[votes] Batch ${String(batch)}: ${String(totalSessions)} sessions, ${String(totalSuccess)} votes, ${String(totalSkipped)} skipped`,
-        );
-      }),
+      tap(
+        ({
+          batch,
+          totalSessions,
+          totalSuccess,
+          totalSkipped,
+          totalValidationSkipped,
+        }) => {
+          const validErr =
+            totalValidationSkipped > 0
+              ? `, ${String(totalValidationSkipped)} invalid`
+              : '';
+          console.log(
+            `[votes] Batch ${String(batch)}: ${String(totalSessions)} sessions, ${String(totalSuccess)} votes, ${String(totalSkipped)} skipped${validErr}`,
+          );
+        },
+      ),
       reduce(
         (acc, r) => ({
           batches: acc.batches + 1,
           totalSuccess: acc.totalSuccess + r.totalSuccess,
           totalSkipped: acc.totalSkipped + r.totalSkipped,
           totalSessions: acc.totalSessions + r.totalSessions,
+          totalValidationSkipped:
+            acc.totalValidationSkipped + r.totalValidationSkipped,
         }),
-        { batches: 0, totalSuccess: 0, totalSkipped: 0, totalSessions: 0 },
+        {
+          batches: 0,
+          totalSuccess: 0,
+          totalSkipped: 0,
+          totalSessions: 0,
+          totalValidationSkipped: 0,
+        },
       ),
       map((acc) => ({ source: 'votes', ...acc })),
       tap((r) => {
+        const validErr =
+          r.totalValidationSkipped > 0
+            ? `, ${String(r.totalValidationSkipped)} invalid`
+            : '';
         console.log(
-          `[votes] Complete: ${String(r.batches)} batches, ${String(r.totalSessions)} sessions, ${String(r.totalSuccess)} votes, ${String(r.totalSkipped)} skipped`,
+          `[votes] Complete: ${String(r.batches)} batches, ${String(r.totalSessions)} sessions, ${String(r.totalSuccess)} votes, ${String(r.totalSkipped)} skipped${validErr}`,
         );
       }),
     );
