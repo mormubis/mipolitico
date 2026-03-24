@@ -70,6 +70,13 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
               record.speakerName.trim().toLowerCase(),
           );
 
+          // Prefer the bulk JSON ORADOR for the canonical speaker name —
+          // it uses "Surname, Name" format matching Person.name exactly.
+          // Strip the parliamentary group suffix "(GS)", "(GPP)", etc.
+          const canonicalName = match?.ORADOR
+            ? match.ORADOR.replace(/\s*\([^)]+\)\s*$/, '').trim()
+            : record.speakerName;
+
           const enriched: InterventionInput = {
             endTime: match?.FININTERVENCION,
             initiativeSubject: match?.OBJETOINICIATIVA,
@@ -81,8 +88,8 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
             sessionTitle: record.sessionTitle,
             sessionUrl: record.sessionUrl,
             speaker: record.speaker,
-            speakerName: record.speakerName,
-            speakerRole: record.speakerRole,
+            speakerName: canonicalName,
+            speakerRole: match?.CARGOORADOR ?? record.speakerRole,
             startTime: match?.INICIOINTERVENCION,
             text: record.text,
             videoDownloadUrl: match?.ENLACEDESCARGADIRECTA,
@@ -99,30 +106,37 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
     ),
     mergeMap(({ ready }) => (ready.length > 0 ? from(ready) : EMPTY)),
     mergeMap(async (enriched) => {
-      // speakerName from the HTML transcript is ALL-CAPS surnames only
-      // e.g. "IÑARRITU GARCÍA" — Person.name is "Iñarritu García, Jon" (title case, Surname, Given).
-      // Use SQLite raw query with UPPER() and accent-insensitive LIKE to match.
-      const normalized = enriched.speakerName
-        .toUpperCase()
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '');
+      // First try exact match — bulk ORADOR is already "Surname, Name" format.
+      let person = await prisma.person.findUnique({
+        where: { name: enriched.speakerName },
+        select: { id: true },
+      });
 
-      const persons = await prisma.$queryRaw<{ id: string }[]>`
-        SELECT id FROM Person
-        WHERE UPPER(
-          replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+      // Fallback: accent-insensitive SQL LIKE for HTML-parsed ALL-CAPS names
+      // e.g. "IÑARRITU GARCÍA" matching "Iñarritu García, Jon".
+      if (!person) {
+        const normalized = enriched.speakerName
+          .toUpperCase()
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '');
+
+        const persons = await prisma.$queryRaw<{ id: string }[]>`
+          SELECT id FROM Person
+          WHERE UPPER(
             replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
-            name,
-            'á','a'),'é','e'),'í','i'),'ó','o'),'ú','u'),
-            'Á','A'),'É','E'),'Í','I'),'Ó','O'),'Ú','U'),
-            'ñ','n'),'Ñ','N'),'ü','u'),'Ü','U'),
-            'à','a'),'è','e'),'ï','i'),'ö','o'),'â','a'),'ê','e')
-        ) LIKE ${'%' + normalized + '%'}
-        LIMIT 1
-      `;
+              replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+              name,
+              'á','a'),'é','e'),'í','i'),'ó','o'),'ú','u'),
+              'Á','A'),'É','E'),'Í','I'),'Ó','O'),'Ú','U'),
+              'ñ','n'),'Ñ','N'),'ü','u'),'Ü','U'),
+              'à','a'),'è','e'),'ï','i'),'ö','o'),'â','a'),'ê','e')
+          ) LIKE ${'%' + normalized + '%'}
+          LIMIT 1
+        `;
+        person = persons[0] ?? null;
+      }
 
-      const personId = persons[0]?.id;
-      return { ...enriched, personId };
+      return { ...enriched, personId: person?.id };
     }),
   );
 
