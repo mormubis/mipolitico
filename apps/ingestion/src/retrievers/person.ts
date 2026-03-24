@@ -10,12 +10,16 @@ import type { Retriever } from '../types.ts';
 type Model = z.infer<typeof Schema>;
 
 // The bulk JSON uses Spanish UPPERCASE field names matching the original API.
+// DiputadosActivos and DiputadosDeBaja share the same schema — the Baja file
+// adds FECHABAJA and FECHABAJAENGRUPOPARLAMENTARIO which are optional here.
 const Schema = z
   .object({
     BIOGRAFIA: z.string().optional(),
     CIRCUNSCRIPCION: z.string(),
     FECHAALTA: z.string(),
     FECHAALTAENGRUPOPARLAMENTARIO: z.string(),
+    FECHABAJA: z.string().optional(),
+    FECHABAJAENGRUPOPARLAMENTARIO: z.string().optional(),
     FECHACONDICIONPLENA: z.string(),
     FORMACIONELECTORAL: z.string(),
     GRUPOPARLAMENTARIO: z.string(),
@@ -25,7 +29,9 @@ const Schema = z
     biography: raw.BIOGRAFIA ?? undefined,
     constituency: raw.CIRCUNSCRIPCION,
     electoralFormation: raw.FORMACIONELECTORAL,
+    endDate: raw.FECHABAJA ?? undefined,
     fullConditionDate: raw.FECHACONDICIONPLENA,
+    groupEndDate: raw.FECHABAJAENGRUPOPARLAMENTARIO ?? undefined,
     groupStartDate: raw.FECHAALTAENGRUPOPARLAMENTARIO,
     name: raw.NOMBRE,
     parliamentaryGroup: raw.GRUPOPARLAMENTARIO,

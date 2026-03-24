@@ -94,8 +94,12 @@ export async function upsertDeputies(
           personId: person.id,
           constituency: data.constituency,
           startDate,
+          endDate: data.endDate ? parseSpanishDate(data.endDate) : null,
           fullConditionDate: data.fullConditionDate
             ? parseSpanishDate(data.fullConditionDate)
+            : null,
+          groupEndDate: data.groupEndDate
+            ? parseSpanishDate(data.groupEndDate)
             : null,
           parliamentaryGroup: data.parliamentaryGroup,
           electoralFormation: data.electoralFormation,
@@ -103,8 +107,12 @@ export async function upsertDeputies(
         },
         update: {
           constituency: data.constituency,
+          endDate: data.endDate ? parseSpanishDate(data.endDate) : null,
           fullConditionDate: data.fullConditionDate
             ? parseSpanishDate(data.fullConditionDate)
+            : null,
+          groupEndDate: data.groupEndDate
+            ? parseSpanishDate(data.groupEndDate)
             : null,
           parliamentaryGroup: data.parliamentaryGroup,
           electoralFormation: data.electoralFormation,

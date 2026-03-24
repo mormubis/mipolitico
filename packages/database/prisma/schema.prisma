@@ -99,6 +99,11 @@ model Deputy {
   parliamentaryGroup  String
   /// Electoral coalition or list the deputy was elected under.
   electoralFormation  String
+  /// Date deputy left office (resigned, became minister, died, etc.).
+  /// Null for currently active deputies.
+  endDate             DateTime?
+  /// Date deputy left their parliamentary group. Null if still in same group.
+  groupEndDate        DateTime?
   /// Legislature number. Defaults to 15 (current legislature as of 2026-01).
   /// Used for historical data partitioning across multiple legislatures.
   legislature         Int      @default(15)

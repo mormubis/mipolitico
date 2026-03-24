@@ -12,11 +12,11 @@ const finder: Finder = ({ browser }) =>
           waitUntil: 'networkidle',
         });
 
-        const link = await page
+        const activeLink = await page
           .locator('a[href*=DiputadosActivos][href$=json]')
           .getAttribute('href');
 
-        if (!link) {
+        if (!activeLink) {
           subscriber.error(
             new Error(
               '[person] Could not find link to active deputies JSON data on the congress page',
@@ -25,8 +25,17 @@ const finder: Finder = ({ browser }) =>
           return;
         }
 
-        const url = new URL(link, 'https://www.congreso.es');
-        subscriber.next(url.href);
+        const bajaLink = await page
+          .locator('a[href*=DiputadosDeBaja][href$=json]')
+          .getAttribute('href');
+
+        subscriber.next(new URL(activeLink, 'https://www.congreso.es').href);
+
+        // Also ingest deputies who left mid-legislature (ministers, resignations, etc.)
+        if (bajaLink) {
+          subscriber.next(new URL(bajaLink, 'https://www.congreso.es').href);
+        }
+
         subscriber.complete();
       } catch (cause) {
         subscriber.error(cause);
