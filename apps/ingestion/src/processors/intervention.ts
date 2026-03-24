@@ -1,10 +1,16 @@
 import { prisma } from '@congress/database';
 import { EMPTY, from, mergeMap, scan } from 'rxjs';
 
+import { normalizeSpanishName } from '../utils.ts';
+
 import type { Model as DetailModel } from '../retrievers/intervention-detail.ts';
 import type { Model as BulkModel } from '../retrievers/intervention.ts';
 import type { Processor } from '../types.ts';
 import type { InterventionInput } from '@congress/database';
+
+// Lazy-loaded lookup map: normalised name key → Person.id
+// Built on first use to avoid repeated DB queries across all interventions.
+let personLookup: Map<string, string> | null = null;
 
 // Ordering assumption: bulk metadata records (intervention source) must arrive
 // before their matching detail records (intervention-detail source) for enrichment
@@ -106,37 +112,21 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
     ),
     mergeMap(({ ready }) => (ready.length > 0 ? from(ready) : EMPTY)),
     mergeMap(async (enriched) => {
-      // First try exact match — bulk ORADOR is already "Surname, Name" format.
-      let person = await prisma.person.findUnique({
-        where: { name: enriched.speakerName },
-        select: { id: true },
-      });
-
-      // Fallback: accent-insensitive SQL LIKE for HTML-parsed ALL-CAPS names
-      // e.g. "IÑARRITU GARCÍA" matching "Iñarritu García, Jon".
-      if (!person) {
-        const normalized = enriched.speakerName
-          .toUpperCase()
-          .normalize('NFD')
-          .replace(/\p{Diacritic}/gu, '');
-
-        const persons = await prisma.$queryRaw<{ id: string }[]>`
-          SELECT id FROM Person
-          WHERE UPPER(
-            replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
-              replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
-              name,
-              'á','a'),'é','e'),'í','i'),'ó','o'),'ú','u'),
-              'Á','A'),'É','E'),'Í','I'),'Ó','O'),'Ú','U'),
-              'ñ','n'),'Ñ','N'),'ü','u'),'Ü','U'),
-              'à','a'),'è','e'),'ï','i'),'ö','o'),'â','a'),'ê','e')
-          ) LIKE ${'%' + normalized + '%'}
-          LIMIT 1
-        `;
-        person = persons[0] ?? null;
+      // Build a normalised lookup map from all Person records on first call.
+      // This avoids repeated DB queries and handles Spanish name variants:
+      // particles (de/del), hyphens, accents, Catalan connectors.
+      if (!personLookup) {
+        const persons = await prisma.person.findMany({
+          select: { id: true, name: true },
+        });
+        personLookup = new Map(
+          persons.map((p) => [normalizeSpanishName(p.name), p.id]),
+        );
       }
 
-      return { ...enriched, personId: person?.id };
+      const key = normalizeSpanishName(enriched.speakerName);
+      const personId = personLookup.get(key);
+      return { ...enriched, personId };
     }),
   );
 

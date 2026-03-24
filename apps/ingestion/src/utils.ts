@@ -79,4 +79,79 @@ function shuffle<T>(array: T[]): T[] {
   return result;
 }
 
-export { random, romanize, shuffle, sleep, validate };
+/**
+ * Spanish name particles that may appear as prefixes in transcript speaker
+ * names (ALL-CAPS format) but are stored as suffixes in Person.name.
+ *
+ * e.g. Person.name: "Olano Vela, Jaime Eduardo de"
+ *      Transcript:  "DE OLANO VELA"
+ *      Both normalise to: "OLANO VELA DE"
+ */
+const PARTICLES = new Set(['DE', 'DEL', 'DE LA', 'DE LAS', 'DE LOS', 'DE LES']);
+
+/**
+ * Catalan connectors between surnames that appear in Person.name but are
+ * dropped in transcript speaker names.
+ *
+ * e.g. Person.name: "Ogou i Corbi, Viviane"
+ *      Transcript:  "OGOU CORBI"
+ */
+const CATALAN_CONNECTORS = / I /g;
+
+/**
+ * Normalise a Spanish parliamentary name to a canonical key for matching
+ * between Person.name (stored format) and transcript speaker names (ALL-CAPS,
+ * no given name, particles may be prefixed rather than suffixed).
+ *
+ * Steps:
+ * 1. Extract surname portion (before comma, or full string if no comma)
+ * 2. Detect particles at the END of Person.name given-name section and
+ *    append them to the surname
+ * 3. Strip accents (NFD decomposition)
+ * 4. Uppercase
+ * 5. Strip hyphens
+ * 6. Strip Catalan connectors (` I `)
+ * 7. Move leading particle to end (e.g. "DE OLANO VELA" → "OLANO VELA DE")
+ * 8. Collapse whitespace
+ */
+function normalizeSpanishName(name: string): string {
+  // Split at comma: ["Olano Vela", "Jaime Eduardo de"] or just the full string
+  const commaIdx = name.indexOf(',');
+  let surnames = commaIdx >= 0 ? name.slice(0, commaIdx) : name;
+  const givenPart = commaIdx >= 0 ? name.slice(commaIdx + 1).trim() : '';
+
+  // Detect particle at the end of the given-name portion and move to surname
+  // e.g. given = "Jaime Eduardo de" → particle "de"
+  if (givenPart) {
+    const words = givenPart.split(' ');
+    const lastWord = words[words.length - 1]?.toUpperCase() ?? '';
+    if (PARTICLES.has(lastWord) || ['DE', 'DEL'].includes(lastWord)) {
+      surnames = `${surnames} ${words[words.length - 1] ?? ''}`;
+    }
+  }
+
+  // Strip accents
+  let normalized = surnames.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+  // Uppercase
+  normalized = normalized.toUpperCase();
+
+  // Replace hyphens with spaces (transcript drops hyphens, keeps words separate)
+  normalized = normalized.replace(/-/g, ' ');
+
+  // Strip Catalan connectors (` I ` between surnames)
+  normalized = normalized.replace(CATALAN_CONNECTORS, ' ');
+
+  // Collapse whitespace
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+
+  // Move leading particle to end: "DE OLANO VELA" → "OLANO VELA DE"
+  const firstWord = normalized.split(' ')[0] ?? '';
+  if (PARTICLES.has(firstWord) || ['DE', 'DEL'].includes(firstWord)) {
+    normalized = normalized.slice(firstWord.length).trim() + ' ' + firstWord;
+  }
+
+  return normalized;
+}
+
+export { normalizeSpanishName, random, romanize, shuffle, sleep, validate };
