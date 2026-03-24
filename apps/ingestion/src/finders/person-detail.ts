@@ -45,6 +45,13 @@ const finder: Finder = ({ browser }) =>
 
         // Emit profile URLs for active deputies via searchDiputados POST
         const searchUrl = new URL(searchHref, 'https://www.congreso.es').href;
+
+        // Navigate to search page and wait for initial POST (active deputies only)
+        await page.goto(searchUrl, { waitUntil: 'networkidle' });
+
+        // Change tipo to "2" (Todos) to include inactive deputies, then
+        // click "Buscar" and intercept the new searchDiputados POST.
+        await page.locator('#_diputadomodule_tipo').selectOption('2');
         const [response] = await Promise.all([
           page.waitForResponse(
             (r) =>
@@ -52,7 +59,7 @@ const finder: Finder = ({ browser }) =>
               r.request().method() === 'POST',
             { timeout: 15000 },
           ),
-          page.goto(searchUrl, { waitUntil: 'networkidle' }),
+          page.locator('#_diputadomodule_searchButtonDiputadosForm').click(),
         ]);
 
         const json = (await response.json()) as {
