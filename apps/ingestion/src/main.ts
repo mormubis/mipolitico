@@ -53,6 +53,7 @@ import {
   persistVotes,
 } from './sinks/index.ts';
 
+import type { PersistResult } from './sinks/index.ts';
 import type {
   CommonOptions,
   Finder,
@@ -223,6 +224,66 @@ const SCRAPER_TYPE_MAP: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Run summary
+// ---------------------------------------------------------------------------
+
+function printSummary(
+  results: {
+    label: string;
+    status: 'success' | 'error';
+    result?: PersistResult;
+    error?: string;
+  }[],
+): void {
+  const divider = '─'.repeat(72);
+  console.log(`\n${divider}`);
+  console.log('  INGESTION SUMMARY');
+  console.log(divider);
+
+  if (results.length === 0) {
+    console.log('  No pipelines produced results.');
+    console.log(divider);
+    return;
+  }
+
+  for (const entry of results) {
+    if (entry.status === 'error') {
+      console.log(`  ❌ ${entry.label}`);
+      console.log(`     Error: ${entry.error ?? 'unknown'}`);
+    } else if (entry.result) {
+      const r = entry.result;
+      const batches = r.batches > 0 ? ` · ${String(r.batches)} batches` : '';
+      const sessions =
+        r.totalSessions !== undefined
+          ? ` · ${String(r.totalSessions)} sessions`
+          : '';
+      console.log(
+        `  ✅ ${entry.label.padEnd(35)} ` +
+          `${String(r.totalSuccess).padStart(6)} stored` +
+          ` · ${String(r.totalSkipped).padStart(4)} skipped` +
+          batches +
+          sessions,
+      );
+    }
+  }
+
+  const totalStored = results
+    .filter((r) => r.status === 'success')
+    .reduce((sum, r) => sum + (r.result?.totalSuccess ?? 0), 0);
+  const totalSkipped = results
+    .filter((r) => r.status === 'success')
+    .reduce((sum, r) => sum + (r.result?.totalSkipped ?? 0), 0);
+  const errors = results.filter((r) => r.status === 'error').length;
+
+  console.log(divider);
+  console.log(
+    `  Total: ${String(totalStored)} stored · ${String(totalSkipped)} skipped` +
+      (errors > 0 ? ` · ${String(errors)} pipeline(s) failed` : ''),
+  );
+  console.log(`${divider}\n`);
+}
+
+// ---------------------------------------------------------------------------
 // Orchestrator
 // ---------------------------------------------------------------------------
 
@@ -368,6 +429,16 @@ async function runAll(
     ).pipe(share());
 
     // Step 3: Build pipeline streams from registry
+    const pipelineLabel = (entry: PipelineEntry<unknown, unknown>) =>
+      `[${entry.sources.join('+')}]`;
+
+    const results: {
+      label: string;
+      status: 'success' | 'error';
+      result?: PersistResult;
+      error?: string;
+    }[] = [];
+
     const pipelineStreams = activePipelines.map((entry) => {
       const filtered$ = data$.pipe(
         filter(({ source }) => entry.sources.includes(source)),
@@ -376,7 +447,23 @@ async function runAll(
       const processed$ = entry.processor
         ? filtered$.pipe(entry.processor)
         : filtered$;
-      return processed$.pipe(entry.sink);
+      const label = pipelineLabel(entry);
+      return processed$.pipe(entry.sink).pipe(
+        tap((result) => {
+          // Sink emits one final PersistResult — capture it
+          results.push({
+            label,
+            status: 'success',
+            result: result as PersistResult,
+          });
+        }),
+        catchError((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[main] Pipeline ${label} failed: ${message}`);
+          results.push({ label, status: 'error', error: message });
+          return EMPTY;
+        }),
+      );
     });
 
     if (pipelineStreams.length === 0) {
@@ -388,7 +475,7 @@ async function runAll(
     await lastValueFrom(
       merge(
         ...(pipelineStreams as [Observable<unknown>, ...Observable<unknown>[]]),
-      ),
+      ).pipe(tap({ complete: () => { printSummary(results); } })),
     );
 
     // Record success for each unique scraper type that ran
