@@ -70,7 +70,8 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
             .locator('a[href^="mailto:"]')
             .first()
             .getAttribute('href', { timeout: random(1000, 3000) })
-            .then((link) => (link ?? '').replace('mailto:', '')),
+            .then((link) => (link ?? '').replace('mailto:', ''))
+            .catch(() => undefined),
           page
             .locator('a:has(img[alt="facebook"])')
             .first()
