@@ -9,10 +9,6 @@ interface SearchDeputyItem {
   idLegislatura: number;
 }
 
-interface BajaDeputyItem {
-  codParlamentario: number;
-}
-
 function profileUrl(codParlamentario: number, legislature = 15): string {
   return (
     `https://www.congreso.es/es/busqueda-de-diputados` +
@@ -23,7 +19,7 @@ function profileUrl(codParlamentario: number, legislature = 15): string {
   );
 }
 
-const finder: Finder = ({ browser, fetch }) =>
+const finder: Finder = ({ browser }) =>
   new Observable<string>((subscriber) => {
     void (async () => {
       const page = await browser.newPage();
@@ -69,7 +65,8 @@ const finder: Finder = ({ browser, fetch }) =>
           );
         }
 
-        // Emit profile URLs for inactive deputies via DiputadosDeBaja JSON
+        // Emit profile URLs for inactive deputies via DiputadosDeBaja JSON.
+        // Use page.evaluate to fetch within the browser context (bypasses WAF).
         const bajaLink = await page
           .locator('a[href*="DiputadosDeBaja"][href$="json"]')
           .getAttribute('href')
@@ -77,12 +74,14 @@ const finder: Finder = ({ browser, fetch }) =>
 
         if (bajaLink) {
           const bajaUrl = new URL(bajaLink, 'https://www.congreso.es').href;
-          const bajaResponse = await fetch(bajaUrl);
-          if (bajaResponse.ok) {
-            const bajaData = (await bajaResponse.json()) as BajaDeputyItem[];
-            for (const item of bajaData) {
-              subscriber.next(profileUrl(item.codParlamentario, 15));
-            }
+          const bajaData = await page.evaluate(async (url: string) => {
+            const response = await fetch(url);
+            if (!response.ok) return [];
+            return (await response.json()) as { codParlamentario: number }[];
+          }, bajaUrl);
+
+          for (const item of bajaData) {
+            subscriber.next(profileUrl(item.codParlamentario, 15));
           }
         }
 
