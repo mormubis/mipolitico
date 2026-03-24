@@ -8,6 +8,15 @@ interface CommonOptions {
 
 type Finder = (options: CommonOptions) => Observable<string>;
 
+/**
+ * Sources listed in `after` must fully complete their retriever phase
+ * before this source's finder begins emitting URLs.
+ * Used to enforce ordering when a processor joins two streams and needs
+ * one side to be fully accumulated before the other starts (e.g.
+ * intervention bulk metadata must complete before intervention-detail
+ * HTML scraping begins so the stream join processor can enrich records).
+ */
+
 interface RetrieverOptions extends CommonOptions {
   url: string;
   validationMode: 'strict' | 'soft';

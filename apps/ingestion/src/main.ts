@@ -5,6 +5,8 @@ import {
 } from '@congress/database';
 import {
   EMPTY,
+  Observable,
+  Subject,
   catchError,
   filter,
   lastValueFrom,
@@ -13,6 +15,7 @@ import {
   mergeMap,
   retry,
   share,
+  tap,
 } from 'rxjs';
 
 import { finder as bureauFinder } from './finders/bureau.ts';
@@ -58,7 +61,7 @@ import type {
   TaggedData,
   TaggedUrl,
 } from './types.ts';
-import type { Observable, OperatorFunction } from 'rxjs';
+import type { OperatorFunction } from 'rxjs';
 
 // ---------------------------------------------------------------------------
 // Registry types
@@ -69,6 +72,8 @@ interface SourceEntry<T> {
   finder: Finder;
   retriever: Retriever<T>;
   urlFilter?: (url: string) => boolean;
+  /** Source names that must fully complete before this source's finder starts. */
+  after?: string[];
 }
 
 interface PipelineEntry<T, U> {
@@ -124,6 +129,9 @@ function buildSources(
       name: 'intervention-detail',
       finder: interventionDetailFinder,
       retriever: interventionDetailRetriever,
+      // Must run after 'intervention' completes so the processor's scan
+      // accumulator has all bulk metadata rows before detail records arrive.
+      after: ['intervention'],
     },
     {
       name: 'initiatives',
@@ -276,35 +284,87 @@ async function runAll(
     const options: CommonOptions = { browser, fetch };
     const retrieverOptions = { ...options, validationMode };
 
-    // Step 1: Build shared tagged URL pool
-    const urls$ = merge(
-      ...(activeSources.map((entry) =>
-        entry.finder(options).pipe(
-          filter((url) => (entry.urlFilter ? entry.urlFilter(url) : true)),
-          map((url): TaggedUrl => ({ source: entry.name, url })),
-        ),
-      ) as [Observable<TaggedUrl>, ...Observable<TaggedUrl>[]]),
-    ).pipe(share());
+    // Completion gates — each source that others depend on gets a Subject.
+    // When its retriever stream ends, it completes the subject to unblock dependents.
+    const completionGates = new Map<string, Subject<void>>();
+    for (const entry of activeSources) {
+      const isDependency = activeSources.some((s) =>
+        s.after?.includes(entry.name),
+      );
+      if (isDependency) completionGates.set(entry.name, new Subject<void>());
+    }
 
-    // Step 2: Build shared tagged data pool
-    const data$ = merge(
-      ...(activeSources.map((entry) =>
-        urls$.pipe(
-          filter(({ source }) => source === entry.name),
-          mergeMap(({ url }) =>
-            entry.retriever({ url, ...retrieverOptions }).pipe(
-              retry({ delay: 15 * 1000, count: 1 }),
-              map((data): TaggedData => ({ source: entry.name, data })),
-              catchError((err: unknown) => {
-                console.warn(
-                  `[${entry.name}] Skipping URL after retry: ${url} — ${(err as Error).message}`,
-                );
-                return EMPTY;
-              }),
-            ),
+    // Build per-source data streams first (needed to wire completion gates).
+    // Each source stream processes its URLs through the retriever.
+    const sourceData$ = new Map<string, Observable<TaggedData>>();
+    for (const entry of activeSources) {
+      // Finder URLs, optionally delayed until `after` sources complete
+      const rawFinder$ = entry.finder(options).pipe(
+        filter((url) => (entry.urlFilter ? entry.urlFilter(url) : true)),
+        map((url): TaggedUrl => ({ source: entry.name, url })),
+      );
+
+      const finder$: Observable<TaggedUrl> =
+        entry.after && entry.after.length > 0
+          ? new Observable<TaggedUrl>((subscriber) => {
+              // Wait for all `after` sources to signal completion, then subscribe to finder
+              const deps = (entry.after ?? [])
+                .map((dep) => completionGates.get(dep))
+                .filter((g): g is Subject<void> => g != null);
+
+              if (deps.length === 0) {
+                rawFinder$.subscribe(subscriber);
+                return;
+              }
+
+              let completed = 0;
+              const checkAndStart = () => {
+                completed++;
+                if (completed === deps.length) {
+                  rawFinder$.subscribe(subscriber);
+                }
+              };
+
+              for (const dep of deps) {
+                dep.subscribe({ complete: checkAndStart });
+              }
+            })
+          : rawFinder$;
+
+      const stream$ = finder$.pipe(
+        mergeMap(({ url }) =>
+          entry.retriever({ url, ...retrieverOptions }).pipe(
+            retry({ delay: 15 * 1000, count: 1 }),
+            map((data): TaggedData => ({ source: entry.name, data })),
+            catchError((err: unknown) => {
+              console.warn(
+                `[${entry.name}] Skipping URL after retry: ${url} — ${(err as Error).message}`,
+              );
+              return EMPTY;
+            }),
           ),
         ),
-      ) as [Observable<TaggedData>, ...Observable<TaggedData>[]]),
+        tap({
+          complete: () => {
+            const gate = completionGates.get(entry.name);
+            if (gate) {
+              gate.next();
+              gate.complete();
+            }
+          },
+        }),
+        share(),
+      );
+
+      sourceData$.set(entry.name, stream$);
+    }
+
+    // Step 2: Build shared tagged data pool using ordered source streams
+    const data$ = merge(
+      ...([...sourceData$.values()] as [
+        Observable<TaggedData>,
+        ...Observable<TaggedData>[],
+      ]),
     ).pipe(share());
 
     // Step 3: Build pipeline streams from registry
