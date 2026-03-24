@@ -4,21 +4,26 @@ import { romanize } from '../utils.ts';
 
 import type { Finder } from '../types.ts';
 
-interface DeputyItem {
-  apellidos: string;
-  apellidosNombre: string;
+interface SearchDeputyItem {
   codParlamentario: number;
-  fchAlta: string;
-  fchBaja: string;
-  genero: number;
-  grupo: string;
-  idCircunscripcion: number;
   idLegislatura: number;
-  nombre: string;
-  nombreCircunscripcion: string;
 }
 
-const finder: Finder = ({ browser }) =>
+interface BajaDeputyItem {
+  codParlamentario: number;
+}
+
+function profileUrl(codParlamentario: number, legislature = 15): string {
+  return (
+    `https://www.congreso.es/es/busqueda-de-diputados` +
+    `?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view` +
+    `&_diputadomodule_mostrarFicha=true` +
+    `&codParlamentario=${String(codParlamentario)}` +
+    `&idLegislatura=${romanize(legislature)}`
+  );
+}
+
+const finder: Finder = ({ browser, fetch }) =>
   new Observable<string>((subscriber) => {
     void (async () => {
       const page = await browser.newPage();
@@ -42,8 +47,8 @@ const finder: Finder = ({ browser }) =>
           return;
         }
 
+        // Emit profile URLs for active deputies via searchDiputados POST
         const searchUrl = new URL(searchHref, 'https://www.congreso.es').href;
-
         const [response] = await Promise.all([
           page.waitForResponse(
             (r) =>
@@ -54,12 +59,31 @@ const finder: Finder = ({ browser }) =>
           page.goto(searchUrl, { waitUntil: 'networkidle' }),
         ]);
 
-        const json = (await response.json()) as { data: DeputyItem[] };
+        const json = (await response.json()) as {
+          data: SearchDeputyItem[];
+        };
 
         for (const item of json.data) {
           subscriber.next(
-            `https://www.congreso.es/es/busqueda-de-diputados?p_p_id=diputadomodule&p_p_lifecycle=0&p_p_state=normal&p_p_mode=view&_diputadomodule_mostrarFicha=true&codParlamentario=${item.codParlamentario.toString()}&idLegislatura=${romanize(item.idLegislatura)}`,
+            profileUrl(item.codParlamentario, item.idLegislatura),
           );
+        }
+
+        // Emit profile URLs for inactive deputies via DiputadosDeBaja JSON
+        const bajaLink = await page
+          .locator('a[href*="DiputadosDeBaja"][href$="json"]')
+          .getAttribute('href')
+          .catch(() => null);
+
+        if (bajaLink) {
+          const bajaUrl = new URL(bajaLink, 'https://www.congreso.es').href;
+          const bajaResponse = await fetch(bajaUrl);
+          if (bajaResponse.ok) {
+            const bajaData = (await bajaResponse.json()) as BajaDeputyItem[];
+            for (const item of bajaData) {
+              subscriber.next(profileUrl(item.codParlamentario, 15));
+            }
+          }
         }
 
         subscriber.complete();
