@@ -1,6 +1,7 @@
 import { prisma } from '@congress/database';
 import { EMPTY, from, mergeMap, scan } from 'rxjs';
 
+import { NAME_OVERRIDES } from '../config/name-overrides.ts';
 import { normalizeSpanishName } from '../utils.ts';
 
 import type { Model as DetailModel } from '../retrievers/intervention-detail.ts';
@@ -124,7 +125,11 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
         );
       }
 
-      const key = normalizeSpanishName(enriched.speakerName);
+      // Check static overrides first for known transcription errors
+      const overrideName = NAME_OVERRIDES[enriched.speakerName];
+      const key = overrideName
+        ? normalizeSpanishName(overrideName)
+        : normalizeSpanishName(enriched.speakerName);
       const personId = personLookup.get(key);
       return { ...enriched, personId };
     }),
