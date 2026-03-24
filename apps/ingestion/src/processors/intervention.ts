@@ -1,7 +1,7 @@
 import { prisma } from '@congress/database';
 import { EMPTY, from, mergeMap, scan } from 'rxjs';
 
-import { NAME_OVERRIDES } from '../config/name-overrides.ts';
+import { NAME_OVERRIDES } from '../corrections/name-overrides.ts';
 import { normalizeSpanishName } from '../utils.ts';
 
 import type { Model as DetailModel } from '../retrievers/intervention-detail.ts';
