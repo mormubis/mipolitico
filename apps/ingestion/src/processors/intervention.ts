@@ -99,11 +99,30 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
     ),
     mergeMap(({ ready }) => (ready.length > 0 ? from(ready) : EMPTY)),
     mergeMap(async (enriched) => {
-      const person = await prisma.person.findFirst({
-        where: { name: { contains: enriched.speakerName } },
-        select: { id: true },
-      });
-      return { ...enriched, personId: person?.id };
+      // speakerName from the HTML transcript is ALL-CAPS surnames only
+      // e.g. "IÑARRITU GARCÍA" — Person.name is "Iñarritu García, Jon" (title case, Surname, Given).
+      // Use SQLite raw query with UPPER() and accent-insensitive LIKE to match.
+      const normalized = enriched.speakerName
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '');
+
+      const persons = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT id FROM Person
+        WHERE UPPER(
+          replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+            replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+            name,
+            'á','a'),'é','e'),'í','i'),'ó','o'),'ú','u'),
+            'Á','A'),'É','E'),'Í','I'),'Ó','O'),'Ú','U'),
+            'ñ','n'),'Ñ','N'),'ü','u'),'Ü','U'),
+            'à','a'),'è','e'),'ï','i'),'ö','o'),'â','a'),'ê','e')
+        ) LIKE ${'%' + normalized + '%'}
+        LIMIT 1
+      `;
+
+      const personId = persons[0]?.id;
+      return { ...enriched, personId };
     }),
   );
 
