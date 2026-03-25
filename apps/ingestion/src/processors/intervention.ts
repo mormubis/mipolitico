@@ -28,6 +28,7 @@ type MetadataMap = Map<string, BulkModel[]>;
 interface AccState {
   map: MetadataMap;
   ready: InterventionInput[];
+  used: Set<string>; // "sessionUrl:bulkIndex" → consumed
 }
 
 function isBulkModel(record: unknown): record is BulkModel {
@@ -61,21 +62,53 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
             console.warn(
               '[intervention] Skipping bulk row with empty ENLACETEXTOINTEGRO',
             );
-            return { map: acc.map, ready: [] };
+            return { map: acc.map, used: acc.used, ready: [] };
           }
           const existing = acc.map.get(url) ?? [];
           acc.map.set(url, [...existing, record]);
-          return { map: acc.map, ready: [] };
+          return { map: acc.map, used: acc.used, ready: [] };
         }
 
         if (isDetailModel(record)) {
-          // Match against accumulated bulk metadata by speaker name
           const bulkRows = acc.map.get(record.sessionUrl) ?? [];
-          const match = bulkRows.find(
-            (row) =>
-              (row.ORADOR ?? '').trim().toLowerCase() ===
-              record.speakerName.trim().toLowerCase(),
+
+          // Two-tier matching:
+          // Tier 1: name-based — normalized speaker name contains first bulk ORADOR word
+          const normalizedHtmlSpeaker = normalizeSpanishName(
+            record.speakerName,
           );
+          const htmlFirstWord = normalizedHtmlSpeaker.split(' ')[0] ?? '';
+
+          let matchIdx = -1;
+
+          if (htmlFirstWord.length >= 3) {
+            // Try name match first (must not be already consumed)
+            matchIdx = bulkRows.findIndex((row, idx) => {
+              if (acc.used.has(`${record.sessionUrl}:${String(idx)}`))
+                {return false;}
+              const normalizedOrador = normalizeSpanishName(
+                (row.ORADOR ?? '').replace(/\s*\([^)]+\)\s*$/, '').trim(),
+              );
+              return (
+                normalizedOrador.includes(htmlFirstWord) ||
+                htmlFirstWord.includes(normalizedOrador.split(' ')[0] ?? '')
+              );
+            });
+          }
+
+          // Tier 2: order-based fallback — next unconsumed bulk row for this session
+          if (matchIdx === -1) {
+            matchIdx = bulkRows.findIndex(
+              (_, idx) => !acc.used.has(`${record.sessionUrl}:${String(idx)}`),
+            );
+          }
+
+          const match = matchIdx >= 0 ? bulkRows[matchIdx] : undefined;
+
+          // Mark as consumed
+          if (matchIdx >= 0) {
+            acc.used.add(`${record.sessionUrl}:${String(matchIdx)}`);
+          }
 
           // Prefer the bulk JSON ORADOR for the canonical speaker name —
           // it uses "Surname, Name" format matching Person.name exactly.
@@ -103,13 +136,13 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
             videoUrl: match?.ENLACEDIFERIDO,
           };
 
-          return { map: acc.map, ready: [enriched] };
+          return { map: acc.map, used: acc.used, ready: [enriched] };
         }
 
         // Unknown record shape — skip silently
-        return { map: acc.map, ready: [] };
+        return { map: acc.map, used: acc.used, ready: [] };
       },
-      { map: new Map(), ready: [] },
+      { map: new Map(), ready: [], used: new Set<string>() },
     ),
     mergeMap(({ ready }) => (ready.length > 0 ? from(ready) : EMPTY)),
     mergeMap(async (enriched) => {
