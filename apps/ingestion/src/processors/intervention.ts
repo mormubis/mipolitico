@@ -84,14 +84,17 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
           if (htmlFirstWord.length >= 3) {
             // Try name match first (must not be already consumed)
             matchIdx = bulkRows.findIndex((row, idx) => {
-              if (acc.used.has(`${record.sessionUrl}:${String(idx)}`))
-                {return false;}
+              if (acc.used.has(`${record.sessionUrl}:${String(idx)}`)) {
+                return false;
+              }
               const normalizedOrador = normalizeSpanishName(
                 (row.ORADOR ?? '').replace(/\s*\([^)]+\)\s*$/, '').trim(),
               );
+              const oradorFirstWord = normalizedOrador.split(' ')[0] ?? '';
               return (
                 normalizedOrador.includes(htmlFirstWord) ||
-                htmlFirstWord.includes(normalizedOrador.split(' ')[0] ?? '')
+                (oradorFirstWord.length >= 3 &&
+                  htmlFirstWord.includes(oradorFirstWord))
               );
             });
           }
