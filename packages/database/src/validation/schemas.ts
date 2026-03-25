@@ -64,6 +64,9 @@ export const InterventionInputSchema = z.object({
   sessionTitle: z.string(),
   sessionUrl: z.string(),
   speaker: z.string(),
+  // speakerName: canonical form from bulk JSON ORADOR when matched via anchor-based
+  // attribution (e.g. "Armengol Socias, Francina"), otherwise the HTML-parsed form
+  // (surnames only, ALL-CAPS, e.g. "PRESIDENTA" for unmatched procedural speakers).
   speakerName: z.string(),
   speakerRole: z.string().optional(),
   startTime: z.string().optional(),
