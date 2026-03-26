@@ -29,6 +29,7 @@ import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
 import { processor as bureauProcessor } from './processors/bureau.ts';
+import { processor as governmentMembersProcessor } from './processors/government-members.ts';
 import { processor as interestDeclarationsDetailProcessor } from './processors/interest-declarations-detail.ts';
 import { processor as interestDeclarationsProcessor } from './processors/interest-declarations.ts';
 import { processor as interventionProcessor } from './processors/intervention.ts';
@@ -44,6 +45,7 @@ import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';
 import {
   persistDeputies,
+  persistGovernmentMembers,
   persistInitiatives,
   persistInterestDeclarations,
   persistInterventions,
@@ -173,6 +175,13 @@ const PIPELINES: PipelineEntry<unknown, unknown>[] = [
     sources: ['intervention', 'intervention-detail'],
     processor: interventionProcessor as OperatorFunction<unknown, unknown>,
     sink: persistInterventions(),
+  },
+  {
+    // Extracts government members from intervention bulk JSON.
+    // Runs alongside the interventions pipeline using the same 'intervention' source.
+    sources: ['intervention'],
+    processor: governmentMembersProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistGovernmentMembers(),
   },
   { sources: ['initiatives'], sink: persistInitiatives() },
   {

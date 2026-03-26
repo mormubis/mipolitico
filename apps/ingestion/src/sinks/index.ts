@@ -1,5 +1,6 @@
 export {
   persistDeputies,
+  persistGovernmentMembers,
   persistInitiatives,
   persistInterestDeclarations,
   persistInterventions,

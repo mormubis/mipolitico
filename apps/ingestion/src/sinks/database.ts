@@ -1,5 +1,6 @@
 import {
   upsertDeputies,
+  upsertGovernmentMembers,
   upsertInitiatives,
   upsertInterestDeclaration,
   upsertInterventions,
@@ -307,8 +308,19 @@ function persistPersonDetail(): Sink<unknown, PersistResult> {
     );
 }
 
+/**
+ * RxJS operator that persists government member records to database.
+ */
+function persistGovernmentMembers(): Sink<unknown, PersistResult> {
+  return createBatchedSink('governmentMembers', async (batch) => {
+    const result = await upsertGovernmentMembers(batch);
+    return { totalSuccess: result.success, totalSkipped: result.skipped };
+  });
+}
+
 export {
   persistDeputies,
+  persistGovernmentMembers,
   persistInitiatives,
   persistInterestDeclarations,
   persistInterventions,
