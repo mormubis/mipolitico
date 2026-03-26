@@ -28,4 +28,16 @@ export const NAME_OVERRIDES: Record<string, string> = {
   // Typo in transcript: Viedma vs Biedma
   'AGUIRRE GIL DE VIEDMA': 'Aguirre Gil de Biedma, Rocío',
   'AGUIRRE Y GIL DE BIEDMA': 'Aguirre Gil de Biedma, Rocío',
+
+  // Former ministers appearing as ALL-CAPS surnames in committee hearings.
+  // These people have no Person records since they were not XV legislature deputies.
+  // Canonical names enable upsertGovernmentMembers to create Person records correctly.
+  'MONTORO ROMERO': 'Montoro Romero, Cristóbal',
+  'FERNÁNDEZ DÍAZ': 'Fernández Díaz, Jorge',
+  'RAJOY BREY': 'Rajoy Brey, Mariano',
+  'DE COSPEDAL GARCÍA': 'De Cospedal García, María Dolores',
+  'SÁENZ DE SANTAMARÍA ANTÓN': 'Sáenz de Santamaría Antón, Soraya',
+  'ILLA I ROCA': 'Illa Roca, Salvador',
+  'MAS I GAVARRÓ': 'Mas Gavarró, Artur',
+  'JUNQUERAS VIES': 'Junqueras Vies, Oriol',
 };
