@@ -54,6 +54,7 @@ export type VotingInput = z.infer<typeof VotingInputSchema>;
 // Input schema for intervention.ts scraper output
 export const InterventionInputSchema = z.object({
   endTime: z.string().optional(),
+  governmentMemberId: z.string().optional(),
   initiativeSubject: z.string().optional(),
   interventionType: z.string().optional(),
   order: z.number(),

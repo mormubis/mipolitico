@@ -167,7 +167,41 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
         ? normalizeSpanishName(overrideName)
         : normalizeSpanishName(enriched.speakerName);
       const personId = personLookup.get(key);
-      return { ...enriched, personId };
+
+      // Resolve governmentMemberId if speaker has a speakerRole matching a government member
+      let governmentMemberId: string | undefined;
+      if (enriched.speakerRole?.trim()) {
+        // First try matching by personId + role (covers current ministers who are also deputies)
+        if (personId) {
+          const govMember = await prisma.governmentMember.findFirst({
+            where: {
+              personId,
+              role: enriched.speakerRole,
+              legislature: 15,
+            },
+            select: { id: true },
+          });
+          governmentMemberId = govMember?.id;
+        }
+
+        // If no personId match, try by role + name (covers cases where personId is null)
+        if (!governmentMemberId) {
+          const canonicalName = enriched.speakerName
+            .replace(/\s*\([^)]+\)\s*$/, '')
+            .trim();
+          const govMember = await prisma.governmentMember.findFirst({
+            where: {
+              role: enriched.speakerRole,
+              person: { name: canonicalName },
+              legislature: 15,
+            },
+            select: { id: true },
+          });
+          governmentMemberId = govMember?.id;
+        }
+      }
+
+      return { ...enriched, personId, governmentMemberId };
     }),
   );
 

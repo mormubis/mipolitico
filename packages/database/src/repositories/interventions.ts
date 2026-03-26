@@ -47,6 +47,7 @@ async function upsertInterventions(
         },
         create: {
           personId: data.personId ?? null,
+          governmentMemberId: data.governmentMemberId ?? null,
           sessionId: data.sessionId,
           sessionDate,
           sessionTitle: data.sessionTitle,
@@ -66,6 +67,7 @@ async function upsertInterventions(
         },
         update: {
           personId: data.personId ?? null,
+          governmentMemberId: data.governmentMemberId ?? null,
           sessionDate,
           sessionTitle: data.sessionTitle,
           speakerRaw: data.speaker,
