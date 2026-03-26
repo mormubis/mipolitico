@@ -11,3 +11,4 @@ export { upsertVotingRecords } from './votes.ts';
 export { upsertInterventions } from './interventions.ts';
 export { upsertOrganMembers } from './organMembers.ts';
 export { updateScraperMetadata, getScraperMetadata } from './metadata.ts';
+export { upsertGovernmentMembers } from './governmentMembers.ts';
