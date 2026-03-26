@@ -39,9 +39,10 @@ model Person {
   updatedAt     DateTime @updatedAt
 
   /// Linked entities.
-  deputies      Deputy[]
-  interventions Intervention[]
-  organMembers OrganMember[]
+  deputies          Deputy[]
+  interventions     Intervention[]
+  organMembers      OrganMember[]
+  governmentMembers GovernmentMember[]
 
   /// Ensures one Person record per unique name. Deduplicates across multiple data sources.
   /// Known limitation: two deputies with identical names will collide into one record.
@@ -252,8 +253,12 @@ model Intervention {
   /// Timestamp of last record update.
   updatedAt       DateTime @updatedAt
 
+  /// Optional link to GovernmentMember when speaker appears in ministerial role.
+  governmentMemberId String?
+
   /// Linked entities.
-  person          Person?  @relation(fields: [personId], references: [id])
+  person           Person?           @relation(fields: [personId], references: [id])
+  governmentMember GovernmentMember? @relation(fields: [governmentMemberId], references: [id])
 
   /// Ensures one intervention record per session order. Sessions may have multiple
   /// interventions; orderInSession tracks their sequence for historical reconstruction.
@@ -298,6 +303,30 @@ model OrganMember {
   /// Ensures one appointment record per name/organ/position/start combination.
   /// Allows same person to hold multiple positions and enables re-appointment after gaps.
   @@unique([name, organ, position, startDate])
+}
+
+/// A person's role in the national government (minister, secretary of state, etc.).
+/// Follows the same Person → role pattern as Deputy and OrganMember.
+/// Multiple records per person if they held different roles (reshuffles).
+///
+/// Data source: ORADOR + CARGOORADOR fields from the intervention bulk JSON.
+model GovernmentMember {
+  id          String   @id @default(cuid())
+  personId    String
+  /// Official role title as it appears in the Diario de Sesiones.
+  /// e.g. "Ministra de Hacienda", "Presidente del Gobierno"
+  role        String
+  /// Legislature number.
+  legislature Int      @default(15)
+  /// Timestamp of record creation.
+  createdAt   DateTime @default(now())
+  /// Timestamp of last record update.
+  updatedAt   DateTime @updatedAt
+
+  person        Person         @relation(fields: [personId], references: [id])
+  interventions Intervention[]
+
+  @@unique([personId, role, legislature])
 }
 
 /// Tracks scraper execution metadata for monitoring and retry management.
