@@ -243,3 +243,13 @@ export const PartyInputSchema = z.object({
   parentShortName: z.string().optional(),
 });
 export type PartyInput = z.infer<typeof PartyInputSchema>;
+
+// Input schema for government-members ingestion pipeline.
+// name: canonical person name (from ORADOR stripped of group code)
+// role: official government role title (from CARGOORADOR)
+export const GovernmentMemberInputSchema = z.object({
+  legislature: z.number().int().default(15),
+  name: z.string().min(1),
+  role: z.string().min(1),
+});
+export type GovernmentMemberInput = z.infer<typeof GovernmentMemberInputSchema>;
