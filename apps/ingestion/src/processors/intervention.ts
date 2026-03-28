@@ -167,7 +167,18 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
       const key = overrideName
         ? normalizeSpanishName(overrideName)
         : normalizeSpanishName(enriched.speakerName);
-      const personId = personLookup.get(key);
+      let personId = personLookup.get(key);
+
+      // Fallback: when speakerName is a role title (e.g. "MINISTRO DEL INTERIOR"),
+      // the processor may have stored the surname in speakerRole (inverted from bulk JSON).
+      // Try matching speakerRole as a name if personId is still unresolved.
+      if (!personId && enriched.speakerRole) {
+        const overrideFromRole = NAME_OVERRIDES[enriched.speakerRole];
+        const roleKey = overrideFromRole
+          ? normalizeSpanishName(overrideFromRole)
+          : normalizeSpanishName(enriched.speakerRole);
+        personId = personLookup.get(roleKey);
+      }
 
       // Resolve governmentMemberId if speaker has a speakerRole matching a government member
       let governmentMemberId: string | undefined;
