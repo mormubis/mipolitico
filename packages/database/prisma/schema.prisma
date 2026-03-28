@@ -248,6 +248,12 @@ model Intervention {
   videoUrl        String?
   /// URL to direct video download.
   videoDownloadUrl String?
+  /// Whether this intervention is procedural (chair management, vote announcements,
+  /// time warnings, very short acknowledgements). Procedural interventions have no
+  /// substantive parliamentary content and should be excluded from activity analysis.
+  /// Rules: chamber officer speaker (PRESIDENTA/PRESIDENTE/VICEPRESIDENTE) with text
+  /// under 1000 chars, OR any speaker with text under 50 chars.
+  procedural      Boolean  @default(false)
   /// Timestamp of record creation.
   createdAt       DateTime @default(now())
   /// Timestamp of last record update.

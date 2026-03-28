@@ -1,12 +1,15 @@
 import { Observable } from 'rxjs';
 import { z } from 'zod';
 
+import { isProcedural } from '../utils.ts';
+
 import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
 
 const Schema = z.object({
   order: z.number(),
+  procedural: z.boolean().default(false),
   sessionDate: z.string(),
   sessionId: z.string(),
   sessionTitle: z.string(),
@@ -73,6 +76,7 @@ const retriever: Retriever<Model> = ({ browser, url }) => {
               speakerName,
               speakerRole: roleMatch?.[1],
               text: interventionText,
+              procedural: isProcedural(speakerName, interventionText),
             });
             order++;
           }

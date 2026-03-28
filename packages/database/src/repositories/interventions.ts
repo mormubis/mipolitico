@@ -64,6 +64,7 @@ async function upsertInterventions(
           endTime: data.endTime ?? null,
           videoUrl: data.videoUrl ?? null,
           videoDownloadUrl: data.videoDownloadUrl ?? null,
+          procedural: data.procedural,
         },
         update: {
           personId: data.personId ?? null,
@@ -77,6 +78,7 @@ async function upsertInterventions(
           organ: data.organ ?? null,
           initiativeSubject: data.initiativeSubject ?? null,
           interventionType: data.interventionType ?? null,
+          procedural: data.procedural,
           startTime: data.startTime ?? null,
           endTime: data.endTime ?? null,
           videoUrl: data.videoUrl ?? null,

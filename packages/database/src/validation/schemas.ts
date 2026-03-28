@@ -60,6 +60,9 @@ export const InterventionInputSchema = z.object({
   order: z.number(),
   organ: z.string().optional(),
   personId: z.string().optional(), // resolved by processor before storage
+  // procedural: true for chair management, vote announcements, time warnings.
+  // Consumers should exclude procedural interventions from activity analysis.
+  procedural: z.boolean().default(false),
   sessionDate: z.string(),
   sessionId: z.string(),
   sessionTitle: z.string(),

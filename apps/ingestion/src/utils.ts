@@ -164,8 +164,38 @@ function normalizeSpanishName(name: string): string {
   return normalized;
 }
 
+/**
+ * Chamber officers who chair sessions. Their interventions are mostly procedural
+ * (turn management, vote announcements, time warnings) rather than substantive.
+ */
+const PROCEDURAL_SPEAKERS = new Set([
+  'PRESIDENTA',
+  'PRESIDENTE',
+  'VICEPRESIDENTE',
+  'VICEPRESIDENTA',
+  'SECRETARIO',
+  'SECRETARIA',
+]);
+
+/**
+ * Determines whether an intervention is procedural (no substantive parliamentary content).
+ *
+ * Rules:
+ * - Any speaker: text under 50 chars → procedural (e.g. "Sí.", "Gracias.")
+ * - Chamber officer + text under 1000 chars → procedural (turn mgmt, vote results)
+ * - Everything else → substantive
+ *
+ * Consumers should add `WHERE NOT procedural` to exclude from activity analysis.
+ */
+function isProcedural(speakerName: string, text: string): boolean {
+  if (text.length < 50) return true;
+  if (PROCEDURAL_SPEAKERS.has(speakerName) && text.length < 1000) return true;
+  return false;
+}
+
 export {
   SKIP_SENTINEL,
+  isProcedural,
   normalizeSpanishName,
   random,
   romanize,

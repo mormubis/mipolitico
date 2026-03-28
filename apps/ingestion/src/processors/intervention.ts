@@ -126,6 +126,7 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
             interventionType: match?.TIPOINTERVENCION,
             order: record.order,
             organ: match?.ORGANO,
+            procedural: record.procedural,
             sessionDate: record.sessionDate,
             sessionId: record.sessionId,
             sessionTitle: record.sessionTitle,
