@@ -180,20 +180,23 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
         personId = personLookup.get(roleKey);
       }
 
-      // Resolve governmentMemberId if speaker has a speakerRole matching a government member
+      // Resolve governmentMemberId if speaker has a speakerRole matching a government member.
+      // Use case-insensitive matching — bulk JSON CARGOORADOR has inconsistent capitalisation
+      // (e.g. "expresidente del Gobierno" vs "Expresidente del Gobierno").
       let governmentMemberId: string | undefined;
       if (enriched.speakerRole?.trim()) {
+        const normalizedRole = enriched.speakerRole.trim().toLowerCase();
+
         // First try matching by personId + role (covers current ministers who are also deputies)
         if (personId) {
-          const govMember = await prisma.governmentMember.findFirst({
-            where: {
-              personId,
-              role: enriched.speakerRole,
-              legislature: 15,
-            },
-            select: { id: true },
+          const govMembers = await prisma.governmentMember.findMany({
+            where: { personId, legislature: 15 },
+            select: { id: true, role: true },
           });
-          governmentMemberId = govMember?.id;
+          const match = govMembers.find(
+            (gm) => gm.role.toLowerCase() === normalizedRole,
+          );
+          governmentMemberId = match?.id;
         }
 
         // If no personId match, try by role + name (covers cases where personId is null)
@@ -201,15 +204,17 @@ const processor: Processor<unknown, InterventionInput> = (source$) =>
           const canonicalName = enriched.speakerName
             .replace(/\s*\([^)]+\)\s*$/, '')
             .trim();
-          const govMember = await prisma.governmentMember.findFirst({
+          const govMembersForName = await prisma.governmentMember.findMany({
             where: {
-              role: enriched.speakerRole,
               person: { name: canonicalName },
               legislature: 15,
             },
-            select: { id: true },
+            select: { id: true, role: true },
           });
-          governmentMemberId = govMember?.id;
+          const nameMatch = govMembersForName.find(
+            (gm) => gm.role.toLowerCase() === normalizedRole,
+          );
+          governmentMemberId = nameMatch?.id;
         }
       }
 
