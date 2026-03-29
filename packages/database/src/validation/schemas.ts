@@ -18,6 +18,7 @@ export { InitiativeType };
 export const PersonInputSchema = z.object({
   biography: z.string().optional(),
   constituency: z.string(),
+  deputyId: z.string().optional(),
   electoralFormation: z.string(),
   endDate: z.string().optional(),
   fullConditionDate: z.string(),
@@ -25,6 +26,7 @@ export const PersonInputSchema = z.object({
   groupStartDate: z.string(),
   name: z.string(),
   parliamentaryGroup: z.string(),
+  personId: z.string().optional(),
   startDate: z.string(),
 });
 export type PersonInput = z.infer<typeof PersonInputSchema>;
@@ -252,8 +254,10 @@ export type PartyInput = z.infer<typeof PartyInputSchema>;
 // name: canonical person name (from ORADOR stripped of group code)
 // role: official government role title (from CARGOORADOR)
 export const GovernmentMemberInputSchema = z.object({
+  id: z.string().optional(),
   legislature: z.number().int().default(15),
   name: z.string().min(1),
+  personId: z.string().optional(),
   role: z.string().min(1),
 });
 export type GovernmentMemberInput = z.infer<typeof GovernmentMemberInputSchema>;
