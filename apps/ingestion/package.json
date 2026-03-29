@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@congress/database": "workspace:*",
+    "@paralleldrive/cuid2": "^3.3.0",
     "oboe": "^2.1.5",
     "p-defer": "^4.0.1",
     "p-deferred": "^1.0.0",
