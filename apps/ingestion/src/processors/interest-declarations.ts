@@ -1,100 +1,84 @@
-import { prisma } from '@congress/database';
-import { EMPTY, from, mergeMap, pipe, reduce } from 'rxjs';
+import { EMPTY, from, mergeMap, pipe, reduce, withLatestFrom } from 'rxjs';
+
+import { normalizeSpanishName } from '../utils.ts';
 
 import type { Model } from '../retrievers/interest-declarations.ts';
 import type { Processor } from '../types.ts';
 import type { InterestDeclarationInput } from '@congress/database';
 
-const processor: Processor<Model, InterestDeclarationInput> = pipe(
-  reduce((acc: Map<string, Model[]>, row) => {
-    const existing = acc.get(row.NOMBRE) ?? [];
-    acc.set(row.NOMBRE, [...existing, row]);
-    return acc;
-  }, new Map<string, Model[]>()),
-  mergeMap((map) =>
-    from(
-      Promise.all(
-        [...map.entries()].map(async ([name, rows]) => {
-          const firstRow = rows[0];
-          if (!firstRow) return null;
+const processor: Processor<Model, InterestDeclarationInput> = (ctx) =>
+  pipe(
+    reduce((acc: Map<string, Model[]>, row) => {
+      const existing = acc.get(row.NOMBRE) ?? [];
+      acc.set(row.NOMBRE, [...existing, row]);
+      return acc;
+    }, new Map<string, Model[]>()),
+    withLatestFrom(ctx.deputyMap$),
+    mergeMap(([map, deputyMap]) => {
+      const results: InterestDeclarationInput[] = [];
 
-          const yearStr = firstRow.FECHAREGISTRO.split('/')[2];
-          const year = yearStr ? parseInt(yearStr, 10) : NaN;
-          if (isNaN(year)) return null;
+      for (const [name, rows] of map.entries()) {
+        const firstRow = rows[0];
+        if (!firstRow) continue;
 
-          // Normalize name: docacteco uses "Surname,Name" (no space after comma)
-          // but Person stores "Surname, Name" (space after comma)
-          const normalizedName = name.replace(/,(\S)/g, ', $1');
-          const person = await prisma.person.findFirst({
-            where: { name: normalizedName },
-            select: {
-              deputies: {
-                select: { id: true },
-                orderBy: { startDate: 'desc' },
-                take: 1,
-              },
-            },
-          });
+        const yearStr = firstRow.FECHAREGISTRO.split('/')[2];
+        const year = yearStr ? parseInt(yearStr, 10) : NaN;
+        if (isNaN(year)) continue;
 
-          const deputyId = person?.deputies[0]?.id;
-          if (!deputyId) {
-            console.warn(
-              `[interestDeclarations] No deputy found for name: ${name}`,
-            );
-            return null;
-          }
+        const normalizedName = name.replace(/,(\S)/g, ', $1');
+        const deputyId = deputyMap.get(normalizeSpanishName(normalizedName));
 
-          const professionalActivities = rows
-            .filter((r) => r.TIPO === 'ACTIVIDAD')
-            .map((r) => ({
-              entity: r.EMPLEADOR ?? '',
-              position: r.DESCRIPCION ?? '',
-              remunerated: r.SECTOR === 'PÚBLICO' || r.SECTOR === 'PRIVADO',
-              startDate: r.PERIODO,
-            }));
+        if (!deputyId) {
+          console.warn(
+            `[interestDeclarations] No deputy found for name: ${name}`,
+          );
+          continue;
+        }
 
-          const donations = rows
-            .filter((r) => r.TIPO === 'DONACION')
-            .map((r) => ({
-              ...(r.BENEFACTOR != null && { benefactor: r.BENEFACTOR }),
-              description: r.DESCRIPCION ?? '',
-            }));
+        const professionalActivities = rows
+          .filter((r) => r.TIPO === 'ACTIVIDAD')
+          .map((r) => ({
+            entity: r.EMPLEADOR ?? '',
+            position: r.DESCRIPCION ?? '',
+            remunerated: r.SECTOR === 'PÚBLICO' || r.SECTOR === 'PRIVADO',
+            startDate: r.PERIODO,
+          }));
 
-          const foundations = rows
-            .filter((r) => r.TIPO === 'FUNDACIONES')
-            .map((r) => ({
-              ...(r.DESCRIPCION != null && { description: r.DESCRIPCION }),
-              recipient: r.DESTINATARIO ?? '',
-            }));
+        const donations = rows
+          .filter((r) => r.TIPO === 'DONACION')
+          .map((r) => ({
+            ...(r.BENEFACTOR != null && { benefactor: r.BENEFACTOR }),
+            description: r.DESCRIPCION ?? '',
+          }));
 
-          const observations = rows
-            .filter((r) => r.TIPO === 'OBSERVACIONES')
-            .map((r) => ({
-              text: r.OBSERVACIONES ?? '',
-            }));
+        const foundations = rows
+          .filter((r) => r.TIPO === 'FUNDACIONES')
+          .map((r) => ({
+            ...(r.DESCRIPCION != null && { description: r.DESCRIPCION }),
+            recipient: r.DESTINATARIO ?? '',
+          }));
 
-          const result: InterestDeclarationInput = {
-            deputyId,
-            donations: donations.length > 0 ? donations : undefined,
-            foundations: foundations.length > 0 ? foundations : undefined,
-            observations: observations.length > 0 ? observations : undefined,
-            professionalActivities:
-              professionalActivities.length > 0
-                ? professionalActivities
-                : undefined,
-            year,
-          };
+        const observations = rows
+          .filter((r) => r.TIPO === 'OBSERVACIONES')
+          .map((r) => ({
+            text: r.OBSERVACIONES ?? '',
+          }));
 
-          return result;
-        }),
-      ),
-    ),
-  ),
-  mergeMap((results) =>
-    results.length > 0
-      ? from(results.filter((r): r is InterestDeclarationInput => r !== null))
-      : EMPTY,
-  ),
-);
+        results.push({
+          deputyId,
+          donations: donations.length > 0 ? donations : undefined,
+          foundations: foundations.length > 0 ? foundations : undefined,
+          observations: observations.length > 0 ? observations : undefined,
+          professionalActivities:
+            professionalActivities.length > 0
+              ? professionalActivities
+              : undefined,
+          year,
+        });
+      }
+
+      return results.length > 0 ? from(results) : EMPTY;
+    }),
+  );
 
 export { processor };
