@@ -1,5 +1,6 @@
-import { prisma } from '@congress/database';
-import { EMPTY, mergeMap, of } from 'rxjs';
+import { EMPTY, mergeMap, of, withLatestFrom } from 'rxjs';
+
+import { normalizeSpanishName } from '../utils.ts';
 
 import type { Processor } from '../types.ts';
 import type {
@@ -10,44 +11,32 @@ import type {
 /**
  * Resolves name → Deputy.id before storing interest declaration PDFs.
  *
- * Looks up the Person by name, then finds their Deputy record for the current
- * legislature. Skips records where no matching Deputy is found — this means
+ * Uses the deputyMap$ side input built from the person stream so that
  * person + person-detail must run before interest-declarations-detail.
  */
 const processor: Processor<
   InterestDeclarationDetailInput,
   InterestDeclarationInput
-> = (source$) =>
+> = (ctx) => (source$) =>
   source$.pipe(
-    mergeMap(async (record) => {
-      const person = await prisma.person.findFirst({
-        where: { name: record.name },
-        select: {
-          deputies: {
-            select: { id: true },
-            orderBy: { startDate: 'desc' },
-            take: 1,
-          },
-        },
-      });
-
-      const deputyId = person?.deputies[0]?.id;
+    withLatestFrom(ctx.deputyMap$),
+    mergeMap(([record, deputyMap]) => {
+      const deputyId = deputyMap.get(normalizeSpanishName(record.name));
 
       if (!deputyId) {
         console.warn(
           `[interestDeclarationsDetail] No deputy found for name: ${record.name} (codParlamentario: ${String(record.codParlamentario)})`,
         );
-        return null;
+        return EMPTY;
       }
 
-      return {
+      return of({
         deputyId,
         pdfUrl:
           record.pdfActividades ?? record.pdfInteresesEconomicos ?? undefined,
         year: new Date().getFullYear(),
-      } satisfies InterestDeclarationInput;
+      } satisfies InterestDeclarationInput);
     }),
-    mergeMap((record) => (record ? of(record) : EMPTY)),
   );
 
 export { processor };
