@@ -1,4 +1,3 @@
-import { createId } from '@paralleldrive/cuid2';
 import { Readable } from 'node:stream';
 import oboe from 'oboe';
 import { Observable } from 'rxjs';
@@ -9,9 +8,6 @@ import { validate } from '../utils.ts';
 import type { Retriever } from '../types.ts';
 
 type Model = z.infer<typeof Schema>;
-
-// Deduplicates person IDs by name — the same person can have multiple deputy terms.
-const personIds = new Map<string, string>();
 
 // The bulk JSON uses Spanish UPPERCASE field names matching the original API.
 // DiputadosActivos and DiputadosDeBaja share the same schema — the Baja file
@@ -29,28 +25,18 @@ const Schema = z
     GRUPOPARLAMENTARIO: z.string(),
     NOMBRE: z.string(),
   })
-  .transform((raw) => {
-    const name = raw.NOMBRE;
-    let personId = personIds.get(name);
-    if (!personId) {
-      personId = createId();
-      personIds.set(name, personId);
-    }
-    return {
-      biography: raw.BIOGRAFIA ?? undefined,
-      constituency: raw.CIRCUNSCRIPCION,
-      deputyId: createId(),
-      electoralFormation: raw.FORMACIONELECTORAL,
-      endDate: raw.FECHABAJA ?? undefined,
-      fullConditionDate: raw.FECHACONDICIONPLENA,
-      groupEndDate: raw.FECHABAJAENGRUPOPARLAMENTARIO ?? undefined,
-      groupStartDate: raw.FECHAALTAENGRUPOPARLAMENTARIO,
-      name,
-      parliamentaryGroup: raw.GRUPOPARLAMENTARIO,
-      personId,
-      startDate: raw.FECHAALTA,
-    };
-  });
+  .transform((raw) => ({
+    biography: raw.BIOGRAFIA ?? undefined,
+    constituency: raw.CIRCUNSCRIPCION,
+    electoralFormation: raw.FORMACIONELECTORAL,
+    endDate: raw.FECHABAJA ?? undefined,
+    fullConditionDate: raw.FECHACONDICIONPLENA,
+    groupEndDate: raw.FECHABAJAENGRUPOPARLAMENTARIO ?? undefined,
+    groupStartDate: raw.FECHAALTAENGRUPOPARLAMENTARIO,
+    name: raw.NOMBRE,
+    parliamentaryGroup: raw.GRUPOPARLAMENTARIO,
+    startDate: raw.FECHAALTA,
+  }));
 
 const retriever: Retriever<Model> = ({
   fetch,

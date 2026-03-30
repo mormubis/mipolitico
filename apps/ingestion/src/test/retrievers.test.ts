@@ -2,15 +2,15 @@ import { chromium } from 'playwright';
 import { firstValueFrom, lastValueFrom, take, toArray } from 'rxjs';
 
 import { finder as bureauFinder } from '../finders/bureau.ts';
-import { finder as initiativesFinder } from '../finders/initiatives.ts';
-import { finder as interestDeclarationsFinder } from '../finders/interest-declarations.ts';
-import { finder as personFinder } from '../finders/person.ts';
+import { finder as declarationFinder } from '../finders/declaration.ts';
+import { finder as deputyFinder } from '../finders/deputy.ts';
+import { finder as initiativeFinder } from '../finders/initiative.ts';
 import { finder as votingFinder } from '../finders/voting.ts';
 import { retriever as bureauRetriever } from '../retrievers/bureau.ts';
-import { retriever as initiativesRetriever } from '../retrievers/initiatives.ts';
-import { retriever as interestDeclarationsRetriever } from '../retrievers/interest-declarations.ts';
+import { retriever as declarationRetriever } from '../retrievers/declaration.ts';
+import { retriever as deputyRetriever } from '../retrievers/deputy.ts';
+import { retriever as initiativeRetriever } from '../retrievers/initiative.ts';
 import { retriever as interventionRetriever } from '../retrievers/intervention.ts';
-import { retriever as personRetriever } from '../retrievers/person.ts';
 import { retriever as votingRetriever } from '../retrievers/voting.ts';
 
 // ---------------------------------------------------------------------------
@@ -72,26 +72,26 @@ async function main(): Promise<void> {
     };
 
     // -----------------------------------------------------------------------
-    // person — run finder to get fresh timestamped URL
+    // deputy — run finder to get fresh timestamped URL
     // -----------------------------------------------------------------------
-    console.log('\n[person] resolving url via finder...');
-    let personUrl: string | null = null;
+    console.log('\n[deputy] resolving url via finder...');
+    let deputyUrl: string | null = null;
     try {
-      personUrl = await firstValueFrom(personFinder(opts));
+      deputyUrl = await firstValueFrom(deputyFinder(opts));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push({
-        retriever: 'person',
+        retriever: 'deputy',
         message: `finder failed: ${message}`,
       });
       console.error(`  FAIL (finder): ${message}`);
     }
 
-    console.log('\n[person]');
-    const personRecords = personUrl
-      ? await run('person', () =>
+    console.log('\n[deputy]');
+    const deputyRecords = deputyUrl
+      ? await run('deputy', () =>
           lastValueFrom(
-            personRetriever({ ...opts, url: personUrl }).pipe(
+            deputyRetriever({ ...opts, url: deputyUrl }).pipe(
               take(5),
               toArray(),
             ),
@@ -99,24 +99,24 @@ async function main(): Promise<void> {
         )
       : [];
     assert(
-      'person',
-      personRecords.length >= 1,
+      'deputy',
+      deputyRecords.length >= 1,
       'should emit at least 1 record',
     );
-    for (const r of personRecords) {
+    for (const r of deputyRecords) {
       const rec = r as Record<string, unknown>;
       assert(
-        'person',
+        'deputy',
         typeof rec.NOMBRE === 'string' && rec.NOMBRE.length > 0,
         'NOMBRE should be a non-empty string',
       );
       assert(
-        'person',
+        'deputy',
         typeof rec.FORMACIONELECTORAL === 'string',
         'FORMACIONELECTORAL should be a string',
       );
       assert(
-        'person',
+        'deputy',
         typeof rec.GRUPOPARLAMENTARIO === 'string',
         'GRUPOPARLAMENTARIO should be a string',
       );
@@ -269,52 +269,52 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // initiatives — run finder to get fresh timestamped URL, take first
+    // initiative — run finder to get fresh timestamped URL, take first
     // -----------------------------------------------------------------------
-    console.log('\n[initiatives] resolving url via finder...');
-    let initiativesUrl: string | null = null;
+    console.log('\n[initiative] resolving url via finder...');
+    let initiativeUrl: string | null = null;
     try {
-      initiativesUrl = await firstValueFrom(initiativesFinder(opts));
+      initiativeUrl = await firstValueFrom(initiativeFinder(opts));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push({
-        retriever: 'initiatives',
+        retriever: 'initiative',
         message: `finder failed: ${message}`,
       });
       console.error(`  FAIL (finder): ${message}`);
     }
 
-    if (initiativesUrl) {
-      console.log('\n[initiatives]');
-      const initiativesRecords = await run('initiatives', () =>
+    if (initiativeUrl) {
+      console.log('\n[initiative]');
+      const initiativeRecords = await run('initiative', () =>
         lastValueFrom(
-          initiativesRetriever({ ...opts, url: initiativesUrl }).pipe(
+          initiativeRetriever({ ...opts, url: initiativeUrl }).pipe(
             take(5),
             toArray(),
           ),
         ),
       );
       assert(
-        'initiatives',
-        initiativesRecords.length >= 1,
+        'initiative',
+        initiativeRecords.length >= 1,
         'should emit at least 1 record',
       );
-      for (const r of initiativesRecords) {
+      for (const r of initiativeRecords) {
         const rec = r as Record<string, unknown>;
         assert(
-          'initiatives',
+          'initiative',
           typeof rec.LEGISLATURE === 'number',
           'LEGISLATURE should be a number',
         );
         assert(
-          'initiatives',
+          'initiative',
           typeof rec.TIPO === 'string' && rec.TIPO.length > 0,
           'TIPO should be a non-empty string',
         );
         // Records are either ParliamentaryInitiativeInput (has OBJETO) or
         // ApprovedLawInput (has TITULO_LEY) — check the union-level invariant.
         assert(
-          'initiatives',
+          'initiative',
           (typeof rec.OBJETO === 'string' && rec.OBJETO.length > 0) ||
             (typeof rec.TITULO_LEY === 'string' && rec.TITULO_LEY.length > 0),
           'record should have either OBJETO (parliamentary) or TITULO_LEY (approved law)',
@@ -323,51 +323,49 @@ async function main(): Promise<void> {
     }
 
     // -----------------------------------------------------------------------
-    // interest-declarations — run finder to get the docacteco JSON URL
+    // declaration — run finder to get the docacteco JSON URL
     // Note: the retriever calls fetch(url) directly on the bulk JSON endpoint,
     // so we must use the URL the finder resolves (not the opendata page itself).
     // We use take(1) to avoid processing all deputies in the integration test.
     // -----------------------------------------------------------------------
-    console.log('\n[interest-declarations] resolving url via finder...');
-    let interestDeclarationsUrl: string | null = null;
+    console.log('\n[declaration] resolving url via finder...');
+    let declarationUrl: string | null = null;
     try {
-      interestDeclarationsUrl = await firstValueFrom(
-        interestDeclarationsFinder(opts),
-      );
+      declarationUrl = await firstValueFrom(declarationFinder(opts));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push({
-        retriever: 'interest-declarations',
+        retriever: 'declaration',
         message: `finder failed: ${message}`,
       });
       console.error(`  FAIL (finder): ${message}`);
     }
 
-    console.log('\n[interest-declarations]');
-    const interestRecords = interestDeclarationsUrl
-      ? await run('interest-declarations', () =>
+    console.log('\n[declaration]');
+    const interestRecords = declarationUrl
+      ? await run('declaration', () =>
           lastValueFrom(
-            interestDeclarationsRetriever({
+            declarationRetriever({
               ...opts,
-              url: interestDeclarationsUrl,
+              url: declarationUrl,
             }).pipe(take(1), toArray()),
           ),
         )
       : [];
     assert(
-      'interest-declarations',
+      'declaration',
       interestRecords.length === 1,
       'should emit at least 1 record',
     );
     for (const r of interestRecords) {
       const rec = r as Record<string, unknown>;
       assert(
-        'interest-declarations',
+        'declaration',
         typeof rec.nombre === 'string' && rec.nombre.length > 0,
         'nombre should be a non-empty string',
       );
       assert(
-        'interest-declarations',
+        'declaration',
         typeof rec.tipo === 'string',
         'tipo should be a string',
       );

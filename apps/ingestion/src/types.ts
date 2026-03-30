@@ -25,21 +25,7 @@ interface RetrieverOptions extends CommonOptions {
 
 type Retriever<T> = (options: RetrieverOptions) => Observable<T>;
 
-/**
- * Context holding side inputs available to processors.
- * Side inputs are Observable<Map> that emit exactly once when their
- * source stream completes, providing a complete lookup map.
- */
-interface ProcessorContext {
-  /** normalizeSpanishName(person.name) → person.id */
-  personMap$: Observable<Map<string, string>>;
-  /** normalizeSpanishName(person.name) → deputy.id (most recent for legislature) */
-  deputyMap$: Observable<Map<string, string>>;
-  /** "personId::normalizedRole" → governmentMember.id */
-  governmentMemberMap$: Observable<Map<string, string>>;
-}
-
-type Processor<T, U = T> = (ctx: ProcessorContext) => OperatorFunction<T, U>;
+type Processor<T, U = T> = OperatorFunction<T, U>;
 
 type Sink<T, U = T> = OperatorFunction<T, U>;
 
@@ -57,7 +43,6 @@ export type {
   CommonOptions,
   Finder,
   Processor,
-  ProcessorContext,
   Retriever,
   RetrieverOptions,
   Sink,

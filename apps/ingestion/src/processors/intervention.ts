@@ -1,4 +1,5 @@
-import { EMPTY, from, map, mergeMap, scan, withLatestFrom } from 'rxjs';
+import { prisma } from '@congress/database';
+import { EMPTY, from, mergeMap, scan } from 'rxjs';
 
 import { NAME_OVERRIDES } from '../corrections/name-overrides.ts';
 import { normalizeSpanishName } from '../utils.ts';
@@ -7,6 +8,10 @@ import type { Model as DetailModel } from '../retrievers/intervention-detail.ts'
 import type { Model as BulkModel } from '../retrievers/intervention.ts';
 import type { Processor } from '../types.ts';
 import type { InterventionInput } from '@congress/database';
+
+// Lazy-loaded lookup map: normalised name key → Person.id
+// Built on first use to avoid repeated DB queries across all interventions.
+let personLookup: Map<string, string> | null = null;
 
 // Ordering assumption: bulk metadata records (intervention source) must arrive
 // before their matching detail records (intervention-detail source) for enrichment
@@ -46,9 +51,8 @@ function isDetailModel(record: unknown): record is DetailModel {
   );
 }
 
-const processor: Processor<unknown, InterventionInput> = (ctx) => (source$) =>
+const processor: Processor<unknown, InterventionInput> = (source$) =>
   source$.pipe(
-    // Phase 1: scan accumulation
     scan(
       (acc: AccState, record: unknown): AccState => {
         if (isBulkModel(record)) {
@@ -145,27 +149,73 @@ const processor: Processor<unknown, InterventionInput> = (ctx) => (source$) =>
       { map: new Map(), ready: [], used: new Set<string>() },
     ),
     mergeMap(({ ready }) => (ready.length > 0 ? from(ready) : EMPTY)),
-    // Phase 2: enrich via side inputs (replaces DB queries)
-    withLatestFrom(ctx.personMap$, ctx.governmentMemberMap$),
-    map(([enriched, personMap, govMap]) => {
+    mergeMap(async (enriched) => {
+      // Build a normalised lookup map from all Person records on first call.
+      // This avoids repeated DB queries and handles Spanish name variants:
+      // particles (de/del), hyphens, accents, Catalan connectors.
+      if (!personLookup) {
+        const persons = await prisma.person.findMany({
+          select: { id: true, name: true },
+        });
+        personLookup = new Map(
+          persons.map((p) => [normalizeSpanishName(p.name), p.id]),
+        );
+      }
+
+      // Check static overrides first for known transcription errors
       const overrideName = NAME_OVERRIDES[enriched.speakerName];
       const key = overrideName
         ? normalizeSpanishName(overrideName)
         : normalizeSpanishName(enriched.speakerName);
-      let personId: string | undefined = personMap.get(key);
+      let personId = personLookup.get(key);
 
+      // Fallback: when speakerName is a role title (e.g. "MINISTRO DEL INTERIOR"),
+      // the processor may have stored the surname in speakerRole (inverted from bulk JSON).
+      // Try matching speakerRole as a name if personId is still unresolved.
       if (!personId && enriched.speakerRole) {
         const overrideFromRole = NAME_OVERRIDES[enriched.speakerRole];
         const roleKey = overrideFromRole
           ? normalizeSpanishName(overrideFromRole)
           : normalizeSpanishName(enriched.speakerRole);
-        personId = personMap.get(roleKey);
+        personId = personLookup.get(roleKey);
       }
 
+      // Resolve governmentMemberId if speaker has a speakerRole matching a government member.
+      // Use case-insensitive matching — bulk JSON CARGOORADOR has inconsistent capitalisation
+      // (e.g. "expresidente del Gobierno" vs "Expresidente del Gobierno").
       let governmentMemberId: string | undefined;
-      if (enriched.speakerRole?.trim() && personId) {
+      if (enriched.speakerRole?.trim()) {
         const normalizedRole = enriched.speakerRole.trim().toLowerCase();
-        governmentMemberId = govMap.get(`${personId}::${normalizedRole}`);
+
+        // First try matching by personId + role (covers current ministers who are also deputies)
+        if (personId) {
+          const govMembers = await prisma.governmentMember.findMany({
+            where: { personId, legislature: 15 },
+            select: { id: true, role: true },
+          });
+          const match = govMembers.find(
+            (gm) => gm.role.toLowerCase() === normalizedRole,
+          );
+          governmentMemberId = match?.id;
+        }
+
+        // If no personId match, try by role + name (covers cases where personId is null)
+        if (!governmentMemberId) {
+          const canonicalName = enriched.speakerName
+            .replace(/\s*\([^)]+\)\s*$/, '')
+            .trim();
+          const govMembersForName = await prisma.governmentMember.findMany({
+            where: {
+              person: { name: canonicalName },
+              legislature: 15,
+            },
+            select: { id: true, role: true },
+          });
+          const nameMatch = govMembersForName.find(
+            (gm) => gm.role.toLowerCase() === normalizedRole,
+          );
+          governmentMemberId = nameMatch?.id;
+        }
       }
 
       return { ...enriched, personId, governmentMemberId };

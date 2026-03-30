@@ -18,8 +18,9 @@ const finder: Finder = ({ browser }) =>
 
         for (const link of links) {
           const href = await link.getAttribute('href');
-          if (href)
-            {subscriber.next(new URL(href, 'https://www.congreso.es').href);}
+          if (href) {
+            subscriber.next(new URL(href, 'https://www.congreso.es').href);
+          }
         }
 
         subscriber.complete();

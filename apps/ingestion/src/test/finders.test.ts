@@ -2,11 +2,11 @@ import { chromium } from 'playwright';
 import { lastValueFrom, toArray } from 'rxjs';
 
 import { finder as bureau } from '../finders/bureau.ts';
-import { finder as initiatives } from '../finders/initiatives.ts';
-import { finder as interestDeclarations } from '../finders/interest-declarations.ts';
+import { finder as declaration } from '../finders/declaration.ts';
+import { finder as deputyDetail } from '../finders/deputy-detail.ts';
+import { finder as deputy } from '../finders/deputy.ts';
+import { finder as initiative } from '../finders/initiative.ts';
 import { finder as intervention } from '../finders/intervention.ts';
-import { finder as personDetail } from '../finders/person-detail.ts';
-import { finder as person } from '../finders/person.ts';
 import { finder as voting } from '../finders/voting.ts';
 
 interface AssertionError {
@@ -50,36 +50,36 @@ async function main(): Promise<void> {
   try {
     const opts = { browser, fetch: globalThis.fetch };
 
-    // person
-    console.log('\n[person]');
-    const personUrls = await run('person', () =>
-      lastValueFrom(person(opts).pipe(toArray())),
+    // deputy
+    console.log('\n[deputy]');
+    const deputyUrls = await run('deputy', () =>
+      lastValueFrom(deputy(opts).pipe(toArray())),
     );
-    assert('person', personUrls.length === 1, 'should emit exactly 1 url');
+    assert('deputy', deputyUrls.length === 1, 'should emit exactly 1 url');
     assert(
-      'person',
-      personUrls[0]?.startsWith('https://') ?? false,
+      'deputy',
+      deputyUrls[0]?.startsWith('https://') ?? false,
       'url should start with https://',
     );
     assert(
-      'person',
-      personUrls[0]?.endsWith('.json') ?? false,
+      'deputy',
+      deputyUrls[0]?.endsWith('.json') ?? false,
       'url should end with .json',
     );
 
-    // person-detail
-    console.log('\n[person-detail]');
-    const personDetailUrls = await run('person-detail', () =>
-      lastValueFrom(personDetail(opts).pipe(toArray())),
+    // deputy-detail
+    console.log('\n[deputy-detail]');
+    const deputyDetailUrls = await run('deputy-detail', () =>
+      lastValueFrom(deputyDetail(opts).pipe(toArray())),
     );
     assert(
-      'person-detail',
-      personDetailUrls.length > 0,
+      'deputy-detail',
+      deputyDetailUrls.length > 0,
       'should emit at least one url',
     );
-    for (const url of personDetailUrls.slice(0, 5)) {
+    for (const url of deputyDetailUrls.slice(0, 5)) {
       assert(
-        'person-detail',
+        'deputy-detail',
         url.includes('codParlamentario'),
         'url should include codParlamentario param',
       );
@@ -125,33 +125,33 @@ async function main(): Promise<void> {
       'url should start with https://',
     );
 
-    // initiatives
-    console.log('\n[initiatives]');
-    const initiativesUrls = await run('initiatives', () =>
-      lastValueFrom(initiatives(opts).pipe(toArray())),
+    // initiative
+    console.log('\n[initiative]');
+    const initiativeUrls = await run('initiative', () =>
+      lastValueFrom(initiative(opts).pipe(toArray())),
     );
     assert(
-      'initiatives',
-      initiativesUrls.length >= 1 && initiativesUrls.length <= 4,
+      'initiative',
+      initiativeUrls.length >= 1 && initiativeUrls.length <= 4,
       'should emit 1–4 urls',
     );
-    for (const url of initiativesUrls) {
-      assert('initiatives', url.includes('.json'), 'url should contain .json');
+    for (const url of initiativeUrls) {
+      assert('initiative', url.includes('.json'), 'url should contain .json');
     }
 
-    // interest-declarations
-    console.log('\n[interest-declarations]');
-    const interestUrls = await run('interest-declarations', () =>
-      lastValueFrom(interestDeclarations(opts).pipe(toArray())),
+    // declaration
+    console.log('\n[declaration]');
+    const declarationUrls = await run('declaration', () =>
+      lastValueFrom(declaration(opts).pipe(toArray())),
     );
     assert(
-      'interest-declarations',
-      interestUrls.length === 1,
+      'declaration',
+      declarationUrls.length === 1,
       'should emit exactly 1 url',
     );
     assert(
-      'interest-declarations',
-      interestUrls[0]?.includes('docacteco') ?? false,
+      'declaration',
+      declarationUrls[0]?.includes('docacteco') ?? false,
       'url should include docacteco',
     );
   } finally {

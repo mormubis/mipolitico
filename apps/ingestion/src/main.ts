@@ -6,7 +6,6 @@ import {
 import {
   EMPTY,
   Observable,
-  ReplaySubject,
   Subject,
   catchError,
   filter,
@@ -19,33 +18,31 @@ import {
   tap,
 } from 'rxjs';
 
-
 import { finder as bureauFinder } from './finders/bureau.ts';
-import { finder as initiativesFinder } from './finders/initiatives.ts';
-import { finder as interestDeclarationsDetailFinder } from './finders/interest-declarations-detail.ts';
-import { finder as interestDeclarationsFinder } from './finders/interest-declarations.ts';
+import { finder as declarationDetailFinder } from './finders/declaration-detail.ts';
+import { finder as declarationFinder } from './finders/declaration.ts';
+import { finder as deputyDetailFinder } from './finders/deputy-detail.ts';
+import { finder as deputyFinder } from './finders/deputy.ts';
+import { finder as initiativeFinder } from './finders/initiative.ts';
 import { finder as interventionDetailFinder } from './finders/intervention-detail.ts';
 import { finder as interventionFinder } from './finders/intervention.ts';
-import { finder as personDetailFinder } from './finders/person-detail.ts';
-import { finder as personFinder } from './finders/person.ts';
 import { finder as votingFinder } from './finders/voting.ts';
 import { fetch, launch } from './network/index.ts';
 import { processor as bureauProcessor } from './processors/bureau.ts';
+import { processor as declarationDetailProcessor } from './processors/declaration-detail.ts';
+import { processor as declarationProcessor } from './processors/declaration.ts';
 import { processor as governmentMembersProcessor } from './processors/government-members.ts';
-import { processor as interestDeclarationsDetailProcessor } from './processors/interest-declarations-detail.ts';
-import { processor as interestDeclarationsProcessor } from './processors/interest-declarations.ts';
 import { processor as interventionProcessor } from './processors/intervention.ts';
 import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
-import { retriever as initiativesRetriever } from './retrievers/initiatives.ts';
-import { retriever as interestDeclarationsDetailRetriever } from './retrievers/interest-declarations-detail.ts';
-import { retriever as interestDeclarationsRetriever } from './retrievers/interest-declarations.ts';
+import { retriever as declarationDetailRetriever } from './retrievers/declaration-detail.ts';
+import { retriever as declarationRetriever } from './retrievers/declaration.ts';
+import { retriever as deputyDetailRetriever } from './retrievers/deputy-detail.ts';
+import { retriever as deputyRetriever } from './retrievers/deputy.ts';
+import { retriever as initiativeRetriever } from './retrievers/initiative.ts';
 import { retriever as interventionDetailRetriever } from './retrievers/intervention-detail.ts';
 import { retriever as interventionRetriever } from './retrievers/intervention.ts';
-import { retriever as personDetailRetriever } from './retrievers/person-detail.ts';
-import { retriever as personRetriever } from './retrievers/person.ts';
 import { retriever as votingRetriever } from './retrievers/voting.ts';
-import { buildSideInput } from './side-inputs.ts';
 import {
   persistDeputies,
   persistGovernmentMembers,
@@ -57,13 +54,11 @@ import {
   persistPersonDetail,
   persistVotes,
 } from './sinks/index.ts';
-import { normalizeSpanishName } from './utils.ts';
 
 import type { PersistResult } from './sinks/index.ts';
 import type {
   CommonOptions,
   Finder,
-  ProcessorContext,
   Retriever,
   Sink,
   TaggedData,
@@ -88,7 +83,6 @@ interface PipelineEntry<T, U> {
   sources: string[];
   processor?: OperatorFunction<T, U>;
   sink: Sink<U, unknown>;
-  tag?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,11 +110,11 @@ function buildSources(
   votingFilter: (url: string) => boolean,
 ): SourceEntry<unknown>[] {
   return [
-    { name: 'person', finder: personFinder, retriever: personRetriever },
+    { name: 'deputy', finder: deputyFinder, retriever: deputyRetriever },
     {
-      name: 'person-detail',
-      finder: personDetailFinder,
-      retriever: personDetailRetriever,
+      name: 'deputy-detail',
+      finder: deputyDetailFinder,
+      retriever: deputyDetailRetriever,
     },
     {
       name: 'voting',
@@ -143,22 +137,64 @@ function buildSources(
       after: ['intervention'],
     },
     {
-      name: 'initiatives',
-      finder: initiativesFinder,
-      retriever: initiativesRetriever,
+      name: 'initiative',
+      finder: initiativeFinder,
+      retriever: initiativeRetriever,
     },
     {
-      name: 'interest-declarations',
-      finder: interestDeclarationsFinder,
-      retriever: interestDeclarationsRetriever,
+      name: 'declaration',
+      finder: declarationFinder,
+      retriever: declarationRetriever,
     },
     {
-      name: 'interest-declarations-detail',
-      finder: interestDeclarationsDetailFinder,
-      retriever: interestDeclarationsDetailRetriever,
+      name: 'declaration-detail',
+      finder: declarationDetailFinder,
+      retriever: declarationDetailRetriever,
     },
   ];
 }
+
+const PIPELINES: PipelineEntry<unknown, unknown>[] = [
+  { sources: ['deputy'], sink: persistDeputies() },
+  { sources: ['deputy-detail'], sink: persistPersonDetail() },
+  {
+    // partyProcessor uses reduce() — emits after all 'deputy' records complete.
+    // Party names come from the static PARTY_NAMES map in config/party-parents.ts
+    // since the profile page does not expose full party names.
+    sources: ['deputy'],
+    processor: partyProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistParties(),
+  },
+  { sources: ['voting'], sink: persistVotes() },
+  {
+    sources: ['bureau'],
+    processor: bureauProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistOrganMembers(),
+  },
+  {
+    sources: ['intervention', 'intervention-detail'],
+    processor: interventionProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistInterventions(),
+  },
+  {
+    // Extracts government members from intervention bulk JSON.
+    // Runs alongside the interventions pipeline using the same 'intervention' source.
+    sources: ['intervention'],
+    processor: governmentMembersProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistGovernmentMembers(),
+  },
+  { sources: ['initiative'], sink: persistInitiatives() },
+  {
+    sources: ['declaration'],
+    processor: declarationProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistInterestDeclarations(),
+  },
+  {
+    sources: ['declaration-detail'],
+    processor: declarationDetailProcessor as OperatorFunction<unknown, unknown>,
+    sink: persistInterestDeclarations(),
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Source alias map — maps CLI --source values to one or more SourceEntry names
@@ -167,27 +203,27 @@ function buildSources(
 // null means "activate all sources"
 const SOURCE_ALIASES: Record<string, string[] | null> = {
   // deputies: full deputy profile (metadata + detail)
-  deputies: ['person', 'person-detail'],
+  deputies: ['deputy', 'deputy-detail'],
   // parties: subset of deputies needed to extract party data
-  parties: ['person', 'person-detail'],
+  parties: ['deputy', 'deputy-detail'],
   // interventions: full intervention pipeline (bulk metadata + detail HTML)
   interventions: ['intervention', 'intervention-detail'],
   // declarations: interest declaration PDFs per deputy
-  declarations: ['interest-declarations', 'interest-declarations-detail'],
+  declarations: ['declaration', 'declaration-detail'],
   all: null,
 };
 
 // Maps SourceEntry names to ScraperMetadata keys for success/failure tracking
 const SCRAPER_TYPE_MAP: Record<string, string> = {
-  'person': 'deputies',
-  'person-detail': 'personDetail',
+  'deputy': 'deputies',
+  'deputy-detail': 'personDetail',
   'voting': 'voting',
   'bureau': 'bureau',
   'intervention': 'interventions',
   'intervention-detail': 'interventions',
-  'initiatives': 'initiatives',
-  'interest-declarations': 'interestDeclarations',
-  'interest-declarations-detail': 'interestDeclarationsDetail',
+  'initiative': 'initiatives',
+  'declaration': 'interestDeclarations',
+  'declaration-detail': 'interestDeclarationsDetail',
 };
 
 // ---------------------------------------------------------------------------
@@ -294,6 +330,19 @@ async function runAll(
 
   const activeSourceNames = new Set(activeSources.map((s) => s.name));
 
+  // Only activate pipelines where ALL required sources are active.
+  // Pipelines whose sources are only partially active are skipped with a log.
+  const activePipelines = PIPELINES.filter((p) => {
+    const allActive = p.sources.every((s) => activeSourceNames.has(s));
+    if (!allActive && resolvedSources) {
+      const missing = p.sources.filter((s) => !activeSourceNames.has(s));
+      console.log(
+        `[main] Skipping pipeline [${p.sources.join(', ')}] — missing sources: ${missing.join(', ')}`,
+      );
+    }
+    return allActive;
+  });
+
   if (activeSources.length === 0) {
     const validSources = [
       ...SOURCES.map((s) => s.name),
@@ -388,118 +437,6 @@ async function runAll(
       sourceData$.set(entry.name, stream$);
     }
 
-    // Build side inputs from source streams
-    const personSource$ = sourceData$.get('person');
-
-    const personMap$ = personSource$
-      ? buildSideInput(
-          personSource$.pipe(
-            map(({ data }) => data as { name: string; personId: string }),
-          ),
-          (p) => normalizeSpanishName(p.name),
-          (p) => p.personId,
-        )
-      : buildSideInput(
-          EMPTY as Observable<{ name: string; personId: string }>,
-          (p) => normalizeSpanishName(p.name),
-          (p) => p.personId,
-        );
-
-    const deputyMap$ = personSource$
-      ? buildSideInput(
-          personSource$.pipe(
-            map(({ data }) => data as { name: string; deputyId: string }),
-          ),
-          (p) => normalizeSpanishName(p.name),
-          (p) => p.deputyId,
-        )
-      : buildSideInput(
-          EMPTY as Observable<{ name: string; deputyId: string }>,
-          (p) => normalizeSpanishName(p.name),
-          (p) => p.deputyId,
-        );
-
-    // Government member side input — built from government-members pipeline output
-    const govMemberRecords$ = new ReplaySubject<{
-      id: string;
-      personId?: string;
-      role: string;
-    }>();
-    const governmentMemberMap$ = buildSideInput(
-      govMemberRecords$.asObservable(),
-      (gm) => `${gm.personId ?? ''}::${gm.role.trim().toLowerCase()}`,
-      (gm) => gm.id,
-    );
-
-    const ctx: ProcessorContext = {
-      personMap$,
-      deputyMap$,
-      governmentMemberMap$,
-    };
-
-    const PIPELINES: PipelineEntry<unknown, unknown>[] = [
-      { sources: ['person'], sink: persistDeputies() },
-      { sources: ['person-detail'], sink: persistPersonDetail() },
-      {
-        sources: ['person'],
-        processor: partyProcessor(ctx) as OperatorFunction<unknown, unknown>,
-        sink: persistParties(),
-      },
-      { sources: ['voting'], sink: persistVotes() },
-      {
-        sources: ['bureau'],
-        processor: bureauProcessor(ctx) as OperatorFunction<unknown, unknown>,
-        sink: persistOrganMembers(),
-      },
-      {
-        sources: ['intervention', 'intervention-detail'],
-        processor: interventionProcessor(ctx) as OperatorFunction<
-          unknown,
-          unknown
-        >,
-        sink: persistInterventions(),
-      },
-      {
-        sources: ['intervention'],
-        processor: governmentMembersProcessor(ctx) as OperatorFunction<
-          unknown,
-          unknown
-        >,
-        sink: persistGovernmentMembers(),
-        tag: 'government-members',
-      },
-      { sources: ['initiatives'], sink: persistInitiatives() },
-      {
-        sources: ['interest-declarations'],
-        processor: interestDeclarationsProcessor(ctx) as OperatorFunction<
-          unknown,
-          unknown
-        >,
-        sink: persistInterestDeclarations(),
-      },
-      {
-        sources: ['interest-declarations-detail'],
-        processor: interestDeclarationsDetailProcessor(ctx) as OperatorFunction<
-          unknown,
-          unknown
-        >,
-        sink: persistInterestDeclarations(),
-      },
-    ];
-
-    // Only activate pipelines where ALL required sources are active.
-    // Pipelines whose sources are only partially active are skipped with a log.
-    const activePipelines = PIPELINES.filter((p) => {
-      const allActive = p.sources.every((s) => activeSourceNames.has(s));
-      if (!allActive && resolvedSources) {
-        const missing = p.sources.filter((s) => !activeSourceNames.has(s));
-        console.log(
-          `[main] Skipping pipeline [${p.sources.join(', ')}] — missing sources: ${missing.join(', ')}`,
-        );
-      }
-      return allActive;
-    });
-
     // Step 2: Build shared tagged data pool using ordered source streams
     const data$ = merge(
       ...([...sourceData$.values()] as [
@@ -524,24 +461,9 @@ async function runAll(
         filter(({ source }) => entry.sources.includes(source)),
         map(({ data }) => data),
       );
-      let processed$ = entry.processor
+      const processed$ = entry.processor
         ? filtered$.pipe(entry.processor)
         : filtered$;
-
-      if (entry.tag === 'government-members') {
-        processed$ = processed$.pipe(
-          tap((record) => {
-            const gm = record as {
-              id: string;
-              personId?: string;
-              role: string;
-            };
-            govMemberRecords$.next(gm);
-          }),
-          tap({ complete: () => { govMemberRecords$.complete(); } }),
-        );
-      }
-
       const label = pipelineLabel(entry);
       return processed$.pipe(entry.sink).pipe(
         tap((result) => {

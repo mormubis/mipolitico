@@ -72,11 +72,7 @@ export async function upsertDeputies(
 
       const person = await tx.person.upsert({
         where: { name: data.name },
-        create: {
-          id: data.personId ?? undefined,
-          name: data.name,
-          biography: data.biography,
-        },
+        create: { name: data.name, biography: data.biography },
         update: { biography: data.biography },
       });
 
@@ -95,7 +91,6 @@ export async function upsertDeputies(
           },
         },
         create: {
-          id: data.deputyId ?? undefined,
           personId: person.id,
           constituency: data.constituency,
           startDate,

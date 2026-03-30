@@ -64,7 +64,7 @@ async function upsertGovernmentMembers(
 
     const data: GovernmentMemberInput = result.data;
 
-    const personId = data.personId ?? (await findOrCreatePerson(data.name));
+    const personId = await findOrCreatePerson(data.name);
 
     await prisma.governmentMember.upsert({
       where: {
@@ -75,7 +75,6 @@ async function upsertGovernmentMembers(
         },
       },
       create: {
-        id: data.id ?? undefined,
         personId,
         role: data.role,
         legislature: data.legislature,
