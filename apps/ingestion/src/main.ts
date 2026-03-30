@@ -32,8 +32,10 @@ import { fetch, launch } from './network/index.ts';
 import { processor as bureauProcessor } from './processors/bureau.ts';
 import { processor as declarationDetailProcessor } from './processors/declaration-detail.ts';
 import { processor as declarationProcessor } from './processors/declaration.ts';
-import { processor as governmentMembersProcessor } from './processors/government-members.ts';
-import { processor as interventionProcessor } from './processors/intervention.ts';
+import {
+  governmentMemberProcessor as governmentMembersProcessor,
+  processor as interventionProcessor,
+} from './processors/intervention.ts';
 import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as declarationDetailRetriever } from './retrievers/declaration-detail.ts';
