@@ -39,7 +39,23 @@ interface ProcessorContext {
   governmentMemberMap$: Observable<Map<string, string>>;
 }
 
-type Processor<T, U = T> = (ctx: ProcessorContext) => OperatorFunction<T, U>;
+/**
+ * Tagged output record. Processors emit tagged records so the orchestrator
+ * can route each tag to its corresponding sink.
+ */
+interface TaggedOutput<T = unknown> {
+  tag: string;
+  data: T;
+}
+
+/** Helper to create tagged output records inside processors. */
+function emit<T>(tag: string, data: T): TaggedOutput<T> {
+  return { tag, data };
+}
+
+type Processor<T> = (
+  ctx: ProcessorContext,
+) => OperatorFunction<T, TaggedOutput>;
 
 type Sink<T, U = T> = OperatorFunction<T, U>;
 
@@ -53,6 +69,7 @@ interface TaggedData<T = unknown> {
   data: T;
 }
 
+export { emit };
 export type {
   CommonOptions,
   Finder,
@@ -62,5 +79,6 @@ export type {
   RetrieverOptions,
   Sink,
   TaggedData,
+  TaggedOutput,
   TaggedUrl,
 };
