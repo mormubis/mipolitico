@@ -32,11 +32,11 @@ import { fetch, launch } from './network/index.ts';
 import { processor as bureauProcessor } from './processors/bureau.ts';
 import { processor as declarationDetailProcessor } from './processors/declaration-detail.ts';
 import { processor as declarationProcessor } from './processors/declaration.ts';
+import { processor as deputyProcessor } from './processors/deputy.ts';
 import {
   governmentMemberProcessor as governmentMembersProcessor,
   processor as interventionProcessor,
 } from './processors/intervention.ts';
-import { processor as partyProcessor } from './processors/party.ts';
 import { retriever as bureauRetriever } from './retrievers/bureau.ts';
 import { retriever as declarationDetailRetriever } from './retrievers/declaration-detail.ts';
 import { retriever as declarationRetriever } from './retrievers/declaration.ts';
@@ -439,21 +439,24 @@ async function runAll(
     };
 
     const PIPELINES: PipelineEntry[] = [
-      { sources: ['deputy'], sinks: { deputy: persistDeputies() } },
       {
-        sources: ['deputy-detail'],
-        sinks: { deputyDetail: persistPersonDetail() },
-      },
-      {
-        // partyProcessor uses reduce() — emits after all 'deputy' records complete.
+        // deputyProcessor emits 'deputy' records immediately as they arrive, then
+        // emits 'party' records after the source completes using concat + defer.
         // Party names come from the static PARTY_NAMES map in config/party-parents.ts
         // since the profile page does not expose full party names.
         sources: ['deputy'],
-        processor: partyProcessor(ctx) as OperatorFunction<
+        processor: deputyProcessor(ctx) as OperatorFunction<
           unknown,
           TaggedOutput
         >,
-        sinks: { party: persistParties() },
+        sinks: {
+          deputy: persistDeputies(),
+          party: persistParties(),
+        },
+      },
+      {
+        sources: ['deputy-detail'],
+        sinks: { deputyDetail: persistPersonDetail() },
       },
       { sources: ['voting'], sinks: { vote: persistVotes() } },
       {
