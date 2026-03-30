@@ -1,12 +1,13 @@
 import { EMPTY, from, mergeMap, pipe, reduce, withLatestFrom } from 'rxjs';
 
+import { emit } from '../types.ts';
 import { normalizeSpanishName } from '../utils.ts';
 
 import type { Model } from '../retrievers/declaration.ts';
 import type { Processor } from '../types.ts';
 import type { InterestDeclarationInput } from '@congress/database';
 
-const processor: Processor<Model, InterestDeclarationInput> = (ctx) =>
+const processor: Processor<Model> = (ctx) =>
   pipe(
     reduce((acc: Map<string, Model[]>, row) => {
       const existing = acc.get(row.NOMBRE) ?? [];
@@ -77,7 +78,9 @@ const processor: Processor<Model, InterestDeclarationInput> = (ctx) =>
         });
       }
 
-      return results.length > 0 ? from(results) : EMPTY;
+      return results.length > 0
+        ? from(results.map((r) => emit('declaration', r)))
+        : EMPTY;
     }),
   );
 

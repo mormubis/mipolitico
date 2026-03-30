@@ -2,6 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { EMPTY, from, mergeMap, pipe, reduce, withLatestFrom } from 'rxjs';
 
 import { NAME_OVERRIDES } from '../corrections/name-overrides.ts';
+import { emit } from '../types.ts';
 import { normalizeSpanishName } from '../utils.ts';
 
 import type { Model as BulkModel } from '../retrievers/intervention.ts';
@@ -12,7 +13,7 @@ import type { GovernmentMemberInput } from '@congress/database';
 const GOVERNMENT_ROLE_PATTERN =
   /ministro|ministra|vicepresidente del gobierno|vicepresidenta del gobierno|presidente del gobierno|secretario de estado|secretaria de estado/i;
 
-const processor: Processor<BulkModel, GovernmentMemberInput> = (ctx) =>
+const processor: Processor<BulkModel> = (ctx) =>
   pipe(
     reduce((acc: Map<string, GovernmentMemberInput>, row) => {
       const role = row.CARGOORADOR ?? '';
@@ -41,7 +42,7 @@ const processor: Processor<BulkModel, GovernmentMemberInput> = (ctx) =>
     mergeMap(([record, personMap]) => {
       const key = normalizeSpanishName(record.name);
       const personId = personMap.get(key);
-      return [{ ...record, personId }];
+      return [emit('governmentMember', { ...record, personId })];
     }),
   );
 

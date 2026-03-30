@@ -1,6 +1,7 @@
 import { EMPTY, from, map, mergeMap, scan, withLatestFrom } from 'rxjs';
 
 import { NAME_OVERRIDES } from '../corrections/name-overrides.ts';
+import { emit } from '../types.ts';
 import { normalizeSpanishName } from '../utils.ts';
 
 import type { Model as DetailModel } from '../retrievers/intervention-detail.ts';
@@ -46,7 +47,7 @@ function isDetailModel(record: unknown): record is DetailModel {
   );
 }
 
-const processor: Processor<unknown, InterventionInput> = (ctx) => (source$) =>
+const processor: Processor<unknown> = (ctx) => (source$) =>
   source$.pipe(
     // Phase 1: scan accumulation
     scan(
@@ -168,7 +169,11 @@ const processor: Processor<unknown, InterventionInput> = (ctx) => (source$) =>
         governmentMemberId = govMap.get(`${personId}::${normalizedRole}`);
       }
 
-      return { ...enriched, personId, governmentMemberId };
+      return emit('intervention', {
+        ...enriched,
+        personId,
+        governmentMemberId,
+      });
     }),
   );
 

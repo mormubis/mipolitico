@@ -1,6 +1,7 @@
 import { mergeMap, of, pipe, reduce } from 'rxjs';
 
 import { PARTY_NAMES, PARTY_PARENTS } from '../config/party-parents.ts';
+import { emit } from '../types.ts';
 
 import type { Processor } from '../types.ts';
 import type { PartyInput } from '@congress/database';
@@ -10,7 +11,7 @@ interface PersonModel {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const processor: Processor<PersonModel, PartyInput> = (_ctx) =>
+const processor: Processor<PersonModel> = (_ctx) =>
   pipe(
     reduce((acc, record: PersonModel) => {
       const shortName = record.electoralFormation.trim();
@@ -26,15 +27,17 @@ const processor: Processor<PersonModel, PartyInput> = (_ctx) =>
     }, new Map<string, Partial<PartyInput> & { shortName: string }>()),
     mergeMap((map) =>
       of(
-        ...[...map.values()].filter((e): e is PartyInput => {
-          if (!e.name) {
-            console.warn(
-              `[party] No name in PARTY_NAMES for: ${e.shortName} — add it to config/party-parents.ts`,
-            );
-            return false;
-          }
-          return true;
-        }),
+        ...[...map.values()]
+          .filter((e): e is PartyInput => {
+            if (!e.name) {
+              console.warn(
+                `[party] No name in PARTY_NAMES for: ${e.shortName} — add it to config/party-parents.ts`,
+              );
+              return false;
+            }
+            return true;
+          })
+          .map((partyRecord) => emit('party', partyRecord)),
       ),
     ),
   );
