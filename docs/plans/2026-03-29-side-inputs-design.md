@@ -4,9 +4,8 @@
 
 Processors query the database for enrichment data. The intervention processor
 calls `prisma.person.findMany()` and `prisma.governmentMember.findMany()`. The
-bureau processor calls `prisma.person.findUnique()` per record. The
-interest-declarations processor calls `prisma.person.findFirst()` per deputy
-name.
+bureau processor calls `prisma.person.findUnique()` per record. The declaration
+processor calls `prisma.person.findFirst()` per deputy name.
 
 This creates three problems:
 
@@ -51,11 +50,11 @@ caches the result for late subscribers.
 
 ## Side Inputs
 
-| Side Input             | Source stream                    | Key                                | Value                | Consumers                            |
-| ---------------------- | -------------------------------- | ---------------------------------- | -------------------- | ------------------------------------ |
-| `personMap$`           | person retriever                 | `normalizeSpanishName(name)`       | `personId`           | intervention, bureau, interest-decl. |
-| `deputyMap$`           | person retriever                 | `normalizeSpanishName(name)`       | `deputyId`           | interest-declarations                |
-| `governmentMemberMap$` | government-members processor out | `personId + "::" + normalizedRole` | `governmentMemberId` | intervention                         |
+| Side Input             | Source stream                    | Key                                | Value                | Consumers                         |
+| ---------------------- | -------------------------------- | ---------------------------------- | -------------------- | --------------------------------- |
+| `personMap$`           | deputy retriever                 | `normalizeSpanishName(name)`       | `personId`           | intervention, bureau, declaration |
+| `deputyMap$`           | deputy retriever                 | `normalizeSpanishName(name)`       | `deputyId`           | declaration                       |
+| `governmentMemberMap$` | government-members processor out | `personId + "::" + normalizedRole` | `governmentMemberId` | intervention                      |
 
 ## Processor Type Change
 
@@ -173,13 +172,13 @@ can be removed later once side inputs prove reliable.
 
 ## Processor Migration
 
-| Processor             | DB queries removed                                  | Side inputs used                     |
-| --------------------- | --------------------------------------------------- | ------------------------------------ |
-| intervention          | `person.findMany`, `governmentMember.findMany` (×2) | `personMap$`, `governmentMemberMap$` |
-| bureau                | `person.findUnique` per record                      | `personMap$`                         |
-| interest-declarations | `person.findFirst` per name                         | `deputyMap$`                         |
-| party                 | none (already pure)                                 | —                                    |
-| government-members    | none (already pure)                                 | —                                    |
+| Processor          | DB queries removed                                  | Side inputs used                     |
+| ------------------ | --------------------------------------------------- | ------------------------------------ |
+| intervention       | `person.findMany`, `governmentMember.findMany` (×2) | `personMap$`, `governmentMemberMap$` |
+| bureau             | `person.findUnique` per record                      | `personMap$`                         |
+| declaration        | `person.findFirst` per name                         | `deputyMap$`                         |
+| party              | none (already pure)                                 | —                                    |
+| government-members | none (already pure)                                 | —                                    |
 
 After migration, zero processors import `prisma`.
 

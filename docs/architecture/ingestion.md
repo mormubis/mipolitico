@@ -296,7 +296,7 @@ Cross-reference against `Person.name` to identify likely matches.
   bundled Playwright binaries)
 
 When blocked, wait at least 30 minutes before retrying. Run individual sources
-(`--source=person`) rather than full runs during development.
+(`--source=deputy`) rather than full runs during development.
 
 ### Page content via `page.evaluate()`
 
@@ -317,10 +317,9 @@ const data = await page.evaluate(async (url: string) => {
 The `src/network/pool.ts` limits to 5 concurrent browser requests with 1–5
 second random delays. This may be insufficient for full runs.
 
-**Fetch-based pipelines** (person, initiatives, interest-declarations,
-intervention bulk) are less likely to trigger blocks than **Playwright-based
-pipelines** (voting, bureau, person-detail, intervention-detail) which load full
-HTML pages.
+**Fetch-based pipelines** (deputy, initiative, declaration, intervention bulk)
+are less likely to trigger blocks than **Playwright-based pipelines** (voting,
+bureau, deputy-detail, intervention-detail) which load full HTML pages.
 
 ---
 
@@ -399,14 +398,14 @@ and should be merged via `mergePersons(keepId, mergeId)`.
 
 ## Source Aliases
 
-| Alias           | Sources                                                 | Purpose                     |
-| --------------- | ------------------------------------------------------- | --------------------------- |
-| `deputies`      | `person`, `person-detail`                               | Full deputy profile         |
-| `parties`       | `person`, `person-detail`                               | Party data extraction       |
-| `speeches`      | `intervention-detail`                                   | Session transcript scraping |
-| `interventions` | `intervention`, `intervention-detail`                   | Full intervention pipeline  |
-| `declarations`  | `interest-declarations`, `interest-declarations-detail` | Interest declarations       |
-| `all`           | all sources                                             | Full ingestion              |
+| Alias           | Sources                               | Purpose                     |
+| --------------- | ------------------------------------- | --------------------------- |
+| `deputies`      | `deputy`, `deputy-detail`             | Full deputy profile         |
+| `parties`       | `deputy`, `deputy-detail`             | Party data extraction       |
+| `speeches`      | `intervention-detail`                 | Session transcript scraping |
+| `interventions` | `intervention`, `intervention-detail` | Full intervention pipeline  |
+| `declarations`  | `declaration`, `declaration-detail`   | Interest declarations       |
+| `all`           | all sources                           | Full ingestion              |
 
 ---
 

@@ -63,7 +63,7 @@ This means:
 
 - Processors handle entity resolution (e.g. resolving `codParlamentario` →
   `Deputy.id`)
-- Pipeline order is explicit: `person` must run before `person-detail` or
+- Pipeline order is explicit: `deputy` must run before `deputy-detail` or
   `bureau` so that `Person` records exist when dependent pipelines resolve
   foreign keys
 - Never store partial data with the intent to enrich it later — enrich first,
@@ -89,7 +89,7 @@ retrievers. Follow them when adding or modifying ingestion pipelines.
 
 ### Finder/retriever split pattern
 
-- Follow the `person` / `person-detail` pattern when a source has both bulk
+- Follow the `deputy` / `deputy-detail` pattern when a source has both bulk
   metadata and per-record detail pages:
   - `{entity}` finder → single bulk JSON URL → `{entity}` retriever streams it
     with `oboe`, emitting one record per row (no Playwright)
@@ -127,11 +127,10 @@ minutes. Signs of blocking: `HTTP/2 403` from all congreso.es URLs.
 
 - The network pool (`src/network/pool.ts`) limits to 5 concurrent requests with
   1–5 second random delays. This may be insufficient for a full run.
-- Fetch-based pipelines (person, initiatives, interest-declarations,
-  intervention) are less likely to trigger blocks than Playwright-based ones
-  (voting, bureau, person-detail, intervention-detail) which load full HTML
-  pages.
-- When developing, run individual sources (`--source=person`) rather than a full
+- Fetch-based pipelines (deputy, initiative, declaration, intervention) are less
+  likely to trigger blocks than Playwright-based ones (voting, bureau,
+  deputy-detail, intervention-detail) which load full HTML pages.
+- When developing, run individual sources (`--source=deputy`) rather than a full
   run to avoid triggering the block.
 - If blocked, wait at least 30 minutes before retrying.
 
