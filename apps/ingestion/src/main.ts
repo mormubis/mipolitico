@@ -66,6 +66,7 @@ import type {
   Retriever,
   Sink,
   TaggedData,
+  TaggedOutput,
   TaggedUrl,
 } from './types.ts';
 import type { OperatorFunction } from 'rxjs';
@@ -83,11 +84,10 @@ interface SourceEntry<T> {
   after?: string[];
 }
 
-interface PipelineEntry<T, U> {
+interface PipelineEntry {
   sources: string[];
-  processor?: OperatorFunction<T, U>;
-  sink: Sink<U, unknown>;
-  tag?: string;
+  processor?: OperatorFunction<unknown, TaggedOutput>;
+  sinks: Record<string, Sink<unknown, unknown>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -436,30 +436,36 @@ async function runAll(
       governmentMemberMap$,
     };
 
-    const PIPELINES: PipelineEntry<unknown, unknown>[] = [
-      { sources: ['deputy'], sink: persistDeputies() },
-      { sources: ['deputy-detail'], sink: persistPersonDetail() },
+    const PIPELINES: PipelineEntry[] = [
+      { sources: ['deputy'], sinks: { deputy: persistDeputies() } },
+      {
+        sources: ['deputy-detail'],
+        sinks: { deputyDetail: persistPersonDetail() },
+      },
       {
         // partyProcessor uses reduce() — emits after all 'deputy' records complete.
         // Party names come from the static PARTY_NAMES map in config/party-parents.ts
         // since the profile page does not expose full party names.
         sources: ['deputy'],
-        processor: partyProcessor(ctx) as OperatorFunction<unknown, unknown>,
-        sink: persistParties(),
+        processor: partyProcessor(ctx) as OperatorFunction<
+          unknown,
+          TaggedOutput
+        >,
+        sinks: { party: persistParties() },
       },
-      { sources: ['voting'], sink: persistVotes() },
+      { sources: ['voting'], sinks: { vote: persistVotes() } },
       {
         sources: ['bureau'],
-        processor: bureauProcessor(ctx) as OperatorFunction<unknown, unknown>,
-        sink: persistOrganMembers(),
+        processor: bureauProcessor(ctx) as OperatorFunction<
+          unknown,
+          TaggedOutput
+        >,
+        sinks: { organMember: persistOrganMembers() },
       },
       {
         sources: ['intervention', 'intervention-detail'],
-        processor: interventionProcessor(ctx) as OperatorFunction<
-          unknown,
-          unknown
-        >,
-        sink: persistInterventions(),
+        processor: interventionProcessor(ctx),
+        sinks: { intervention: persistInterventions() },
       },
       {
         // Extracts government members from intervention bulk JSON.
@@ -467,27 +473,26 @@ async function runAll(
         sources: ['intervention'],
         processor: governmentMembersProcessor(ctx) as OperatorFunction<
           unknown,
-          unknown
+          TaggedOutput
         >,
-        sink: persistGovernmentMembers(),
-        tag: 'government-members',
+        sinks: { governmentMember: persistGovernmentMembers() },
       },
-      { sources: ['initiative'], sink: persistInitiatives() },
+      { sources: ['initiative'], sinks: { initiative: persistInitiatives() } },
       {
         sources: ['declaration'],
         processor: declarationProcessor(ctx) as OperatorFunction<
           unknown,
-          unknown
+          TaggedOutput
         >,
-        sink: persistInterestDeclarations(),
+        sinks: { declaration: persistInterestDeclarations() },
       },
       {
         sources: ['declaration-detail'],
         processor: declarationDetailProcessor(ctx) as OperatorFunction<
           unknown,
-          unknown
+          TaggedOutput
         >,
-        sink: persistInterestDeclarations(),
+        sinks: { declaration: persistInterestDeclarations() },
       },
     ];
 
@@ -513,9 +518,6 @@ async function runAll(
     ).pipe(share());
 
     // Step 3: Build pipeline streams from registry
-    const pipelineLabel = (entry: PipelineEntry<unknown, unknown>) =>
-      `[${entry.sources.join('+')}]`;
-
     const results: {
       label: string;
       status: 'success' | 'error';
@@ -523,50 +525,66 @@ async function runAll(
       error?: string;
     }[] = [];
 
-    const pipelineStreams = activePipelines.map((entry) => {
+    const pipelineStreams = activePipelines.flatMap((entry) => {
       const filtered$ = data$.pipe(
         filter(({ source }) => entry.sources.includes(source)),
         map(({ data }) => data),
       );
-      let processed$ = entry.processor
-        ? filtered$.pipe(entry.processor)
-        : filtered$;
 
-      if (entry.tag === 'government-members') {
-        processed$ = processed$.pipe(
-          tap((record) => {
-            const gm = record as {
-              id: string;
-              personId?: string;
-              role: string;
-            };
-            govMemberRecords$.next(gm);
+      const defaultTag = Object.keys(entry.sinks)[0] ?? '';
+      const processed$ = entry.processor
+        ? filtered$.pipe(entry.processor)
+        : filtered$.pipe(
+            map((data) => ({ tag: defaultTag, data }) as TaggedOutput),
+          );
+
+      const shared$ = processed$.pipe(share());
+      const sourceLabel = `[${entry.sources.join('+')}]`;
+
+      return Object.entries(entry.sinks).map(([sinkTag, sink]) => {
+        const label = `${sourceLabel} → ${sinkTag}`;
+
+        let sinkInput$ = shared$.pipe(
+          filter((output: TaggedOutput) => output.tag === sinkTag),
+          map((output: TaggedOutput) => output.data),
+        );
+
+        // Tap government member records into side input subject
+        if (sinkTag === 'governmentMember') {
+          sinkInput$ = sinkInput$.pipe(
+            tap((record) => {
+              const gm = record as {
+                id: string;
+                personId?: string;
+                role: string;
+              };
+              govMemberRecords$.next(gm);
+            }),
+            tap({
+              complete: () => {
+                govMemberRecords$.complete();
+              },
+            }),
+          );
+        }
+
+        return sinkInput$.pipe(
+          sink as OperatorFunction<unknown, unknown>,
+          tap((result) => {
+            results.push({
+              label,
+              status: 'success',
+              result: result as PersistResult,
+            });
           }),
-          tap({
-            complete: () => {
-              govMemberRecords$.complete();
-            },
+          catchError((err: unknown) => {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`[main] Pipeline ${label} failed: ${message}`);
+            results.push({ label, status: 'error', error: message });
+            return EMPTY;
           }),
         );
-      }
-
-      const label = pipelineLabel(entry);
-      return processed$.pipe(entry.sink).pipe(
-        tap((result) => {
-          // Sink emits one final PersistResult — capture it
-          results.push({
-            label,
-            status: 'success',
-            result: result as PersistResult,
-          });
-        }),
-        catchError((err: unknown) => {
-          const message = err instanceof Error ? err.message : String(err);
-          console.error(`[main] Pipeline ${label} failed: ${message}`);
-          results.push({ label, status: 'error', error: message });
-          return EMPTY;
-        }),
-      );
+      });
     });
 
     if (pipelineStreams.length === 0) {
